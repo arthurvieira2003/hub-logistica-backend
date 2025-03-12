@@ -9,5 +9,6 @@ router.get("/user/:id", userController.getUser);
 router.get("/users", userController.getAllUsers);
 router.post("/authenticate", userController.authenticateUser);
 router.post("/update-picture", userController.updateUserPicture);
+router.get("/get-picture/:email", userController.getUserPicture);
 
 module.exports = router;

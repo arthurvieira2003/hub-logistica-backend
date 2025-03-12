@@ -69,6 +69,16 @@ const updateUserPicture = async (req, res) => {
   }
 };
 
+const getUserPicture = async (req, res) => {
+  try {
+    const { email } = req.params;
+    const image = await userService.getUserPicture(email);
+    res.status(200).json({ image });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   createUser,
   updatePassword,
@@ -77,4 +87,5 @@ module.exports = {
   getAllUsers,
   authenticateUser,
   updateUserPicture,
+  getUserPicture,
 };

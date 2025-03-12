@@ -126,6 +126,16 @@ const updateUserPicture = async (email, image) => {
   }
 };
 
+const getUserPicture = async (email) => {
+  try {
+    const user = await User.findOne({ where: { email: email } });
+    return user.profile_picture;
+  } catch (error) {
+    console.error("Erro ao buscar usuário:", error);
+    throw error;
+  }
+};
+
 module.exports = {
   createUser,
   getUser,
@@ -134,4 +144,5 @@ module.exports = {
   getAllUsers,
   authenticateUser,
   updateUserPicture,
+  getUserPicture,
 };
