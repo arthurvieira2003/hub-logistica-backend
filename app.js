@@ -5,12 +5,15 @@ const corsOptions = require("./config/cors.config");
 
 const userRoutes = require("./routes/user.routes");
 const sessionRoutes = require("./routes/session.routes");
+const ouroNegroRoutes = require("./routes/ouroNegro.route");
 
 app.use(cors(corsOptions));
 app.use(express.json());
 
 app.use("/user", userRoutes);
 app.use("/session", sessionRoutes);
+app.use("/ouroNegro", ouroNegroRoutes);
+
 const sequelize = require("./config/database.config");
 
 sequelize
