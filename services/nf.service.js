@@ -27,7 +27,7 @@ const getNotas = async (carrier) => {
           INNER JOIN "SBO_COPAPEL_PRD"."OBPL" "BusinessPlace"
             ON "Invoice"."BPLId" = "BusinessPlace"."BPLId"
         WHERE "Customer"."CardName".LOWER() LIKE '%${carrier}%'
-          AND "Invoice"."DocDate" >= ADD_DAYS(CURRENT_DATE, -7)
+          AND "Invoice"."DocDate" >= ADD_DAYS(CURRENT_DATE, -1)
         ORDER BY "Invoice"."DocDate" DESC;
       `;
 
