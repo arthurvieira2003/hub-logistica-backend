@@ -132,4 +132,4 @@ npm test
 
 ## 👨‍💻 Desenvolvedor
 
-- [GitHub](https://github.com/arthurvieira2003)
+- [Arthur Henrique Tscha Vieira](https://github.com/arthurvieira2003)
