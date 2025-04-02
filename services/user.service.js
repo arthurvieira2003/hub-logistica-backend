@@ -136,6 +136,37 @@ const getUserPicture = async (email) => {
   }
 };
 
+const updateAdminStatus = async (email, isAdmin) => {
+  try {
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      throw new Error("Usuário não encontrado");
+    }
+    user.isAdmin = isAdmin;
+    await user.save();
+    return user;
+  } catch (error) {
+    console.error("Erro ao atualizar status de administrador:", error);
+    throw error;
+  }
+};
+
+const updateUserNameAndEmail = async (email, name) => {
+  try {
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      throw new Error("Usuário não encontrado");
+    }
+    user.email = email;
+    user.name = name;
+    await user.save();
+    return user;
+  } catch (error) {
+    console.error("Erro ao atualizar usuário:", error);
+    throw error;
+  }
+};
+
 module.exports = {
   createUser,
   getUser,
@@ -145,4 +176,6 @@ module.exports = {
   authenticateUser,
   updateUserPicture,
   getUserPicture,
+  updateAdminStatus,
+  updateUserNameAndEmail,
 };

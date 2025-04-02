@@ -9,6 +9,7 @@ const generateToken = (user) => {
     email: user.email,
     status: user.status,
     profile_picture: user.profile_picture,
+    isAdmin: user.isAdmin,
   };
 
   return jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: "24h" });

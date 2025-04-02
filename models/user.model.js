@@ -31,6 +31,11 @@ const User = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    isAdmin: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
   },
   {
     tableName: "users",

@@ -79,6 +79,26 @@ const getUserPicture = async (req, res) => {
   }
 };
 
+const updateAdminStatus = async (req, res) => {
+  try {
+    const { email, isAdmin } = req.body;
+    const user = await userService.updateAdminStatus(email, isAdmin);
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const updateUserNameAndEmail = async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    const user = await userService.updateUserNameAndEmail(email, name);
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   createUser,
   updatePassword,
@@ -88,4 +108,6 @@ module.exports = {
   authenticateUser,
   updateUserPicture,
   getUserPicture,
+  updateAdminStatus,
+  updateUserNameAndEmail,
 };
