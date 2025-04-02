@@ -2,7 +2,7 @@
 const allowedOrigins = [
   "http://localhost:3060",
   "http://127.0.0.1:3060",
-  // Adicione outras origens permitidas conforme necessário
+  "https://glad-reliably-lion.ngrok-free.app",
 ];
 
 const corsOptions = {

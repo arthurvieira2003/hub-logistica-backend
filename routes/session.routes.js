@@ -3,5 +3,8 @@ const router = express.Router();
 const sessionController = require("../controllers/session.controller");
 
 router.get("/validate", sessionController.validateToken);
+router.get("/active", sessionController.getActiveSessions);
+router.get("/user/:userId", sessionController.getUserSessions);
+router.post("/logout", sessionController.logoutSession);
 
 module.exports = router;

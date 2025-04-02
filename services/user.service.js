@@ -91,7 +91,7 @@ const getAllUsers = async () => {
   }
 };
 
-const authenticateUser = async (email, password) => {
+const authenticateUser = async (email, password, req) => {
   try {
     const user = await User.findOne({ where: { email } });
     if (!user) {
@@ -103,6 +103,10 @@ const authenticateUser = async (email, password) => {
     }
 
     const token = sessionService.generateToken(user);
+
+    // Criar uma sessão para o usuário
+    await sessionService.createSession(user.id, token, req);
+
     return token;
   } catch (error) {
     console.error("Erro ao autenticar usuário:", error);

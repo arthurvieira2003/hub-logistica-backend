@@ -3,6 +3,10 @@ const app = express();
 const cors = require("cors");
 const corsOptions = require("./config/cors.config");
 
+// Importando os modelos
+require("./models/user.model");
+require("./models/session.model");
+
 const userRoutes = require("./routes/user.routes");
 const sessionRoutes = require("./routes/session.routes");
 const ouroNegroRoutes = require("./routes/ouroNegro.route");

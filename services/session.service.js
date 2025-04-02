@@ -1,4 +1,7 @@
 const jwt = require("jsonwebtoken");
+const Session = require("../models/session.model");
+const User = require("../models/user.model");
+const { Op } = require("sequelize");
 
 require("dotenv").config();
 
@@ -28,8 +31,122 @@ const validateToken = (token) => {
   }
 };
 
+const createSession = async (userId, token, req) => {
+  try {
+    // Calcular a data de expiração (24 horas a partir de agora)
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+
+    const newSession = await Session.create({
+      userId,
+      token,
+      expiresAt,
+      lastActivity: new Date(),
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"],
+      isActive: true,
+    });
+
+    return newSession;
+  } catch (error) {
+    console.error("Erro ao criar sessão:", error);
+    throw error;
+  }
+};
+
+const updateSessionActivity = async (token) => {
+  try {
+    const session = await Session.findOne({ where: { token } });
+    if (session) {
+      session.lastActivity = new Date();
+      await session.save();
+    }
+    return session;
+  } catch (error) {
+    console.error("Erro ao atualizar atividade da sessão:", error);
+    throw error;
+  }
+};
+
+const deactivateSession = async (token) => {
+  try {
+    const session = await Session.findOne({ where: { token } });
+    if (session) {
+      session.isActive = false;
+      await session.save();
+    }
+    return session;
+  } catch (error) {
+    console.error("Erro ao desativar sessão:", error);
+    throw error;
+  }
+};
+
+const getActiveSessions = async () => {
+  try {
+    const sessions = await Session.findAll({
+      where: {
+        isActive: true,
+        expiresAt: { [Op.gt]: new Date() },
+      },
+      include: [
+        {
+          model: User,
+          attributes: ["id", "name", "email", "profile_picture"],
+        },
+      ],
+      order: [["lastActivity", "DESC"]],
+    });
+    return sessions;
+  } catch (error) {
+    console.error("Erro ao buscar sessões ativas:", error);
+    throw error;
+  }
+};
+
+const getUserSessions = async (userId) => {
+  try {
+    const sessions = await Session.findAll({
+      where: {
+        userId,
+        isActive: true,
+        expiresAt: { [Op.gt]: new Date() },
+      },
+      order: [["lastActivity", "DESC"]],
+    });
+    return sessions;
+  } catch (error) {
+    console.error("Erro ao buscar sessões do usuário:", error);
+    throw error;
+  }
+};
+
+const cleanupExpiredSessions = async () => {
+  try {
+    // Marcar como inativas as sessões expiradas
+    await Session.update(
+      { isActive: false },
+      {
+        where: {
+          expiresAt: { [Op.lt]: new Date() },
+          isActive: true,
+        },
+      }
+    );
+  } catch (error) {
+    console.error("Erro ao limpar sessões expiradas:", error);
+    throw error;
+  }
+};
+
 module.exports = {
   generateToken,
   getUserFromToken,
   validateToken,
+  createSession,
+  updateSessionActivity,
+  deactivateSession,
+  getActiveSessions,
+  getUserSessions,
+  cleanupExpiredSessions,
 };
