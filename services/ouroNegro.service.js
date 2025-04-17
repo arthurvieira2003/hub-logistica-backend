@@ -2,6 +2,7 @@ const axios = require("axios");
 require("dotenv").config();
 
 const nfService = require("./nf.service");
+const Tracking = require("../models/tracking.model");
 
 // Função auxiliar para fazer requisição com retry
 const fetchWithRetry = async (url, maxRetries = 3, timeout = 10000) => {
@@ -37,50 +38,187 @@ const fetchWithRetry = async (url, maxRetries = 3, timeout = 10000) => {
   throw lastError;
 };
 
-const getDadosOuroNegro = async () => {
+// Função para garantir que os valores estejam no tipo correto antes de salvar
+const converterTipos = (nota) => {
+  return {
+    ...nota,
+    Serial: parseInt(nota.Serial, 10),
+    DocEntry: parseInt(nota.DocEntry, 10),
+    DocNum: parseInt(nota.DocNum, 10),
+  };
+};
+
+// Função para obter dados de rastreamento de uma única nota
+const obterDadosRastreamento = async (nota) => {
   try {
-    const notas = await nfService.getNotas("ouro negro");
+    const url = `${process.env.OURO_NEGRO_URL}?nota=${nota.Serial}&serie=${nota.SeriesStr}&remetente=${nota.TaxIdNum}`;
+    console.log(`Fazendo requisição para: ${url}`);
+
+    const apiResponse = await fetchWithRetry(url);
+
+    return {
+      docNum: nota.DocNum,
+      docEntry: nota.DocEntry,
+      cardName: nota.CardName,
+      docDate: nota.DocDate,
+      serial: nota.Serial,
+      seriesStr: nota.SeriesStr,
+      carrierName: nota.CarrierName,
+      bplName: nota.BPLName,
+      cidadeOrigem: nota.CidadeOrigem,
+      estadoOrigem: nota.EstadoOrigem,
+      cidadeDestino: nota.CidadeDestino,
+      estadoDestino: nota.EstadoDestino,
+      rastreamento: apiResponse.data,
+      status: "success",
+    };
+  } catch (error) {
+    console.error(`Erro ao processar nota ${nota.Serial}: ${error.message}`);
+
+    return {
+      docNum: nota.DocNum,
+      docEntry: nota.DocEntry,
+      cardName: nota.CardName,
+      docDate: nota.DocDate,
+      serial: nota.Serial,
+      seriesStr: nota.SeriesStr,
+      carrierName: nota.CarrierName,
+      bplName: nota.BPLName,
+      cidadeOrigem: nota.CidadeOrigem,
+      estadoOrigem: nota.EstadoOrigem,
+      cidadeDestino: nota.CidadeDestino,
+      estadoDestino: nota.EstadoDestino,
+      rastreamento: null,
+      status: "error",
+      errorMessage: `Não foi possível obter dados de rastreamento: ${error.message}`,
+    };
+  }
+};
+
+// Verifica se um registro de rastreamento precisa ser atualizado
+// Por padrão, atualizamos a cada 4 horas
+const precisaAtualizar = (tracking, horasParaAtualizar = 4) => {
+  if (!tracking || !tracking.lastUpdated) return true;
+
+  const dataAtual = new Date();
+  const ultimaAtualizacao = new Date(tracking.lastUpdated);
+  const diferencaHoras = (dataAtual - ultimaAtualizacao) / (1000 * 60 * 60);
+
+  return diferencaHoras >= horasParaAtualizar;
+};
+
+const getDadosOuroNegro = async (options = {}) => {
+  try {
+    const {
+      forcarAtualizacao = false,
+      horasParaAtualizar = 4,
+      dias = 1,
+      dataInicio = null,
+      dataFim = null,
+    } = options;
+
+    let notas = await nfService.getNotas(
+      "ouro negro",
+      dias,
+      dataInicio,
+      dataFim
+    );
+
+    // Converter tipos de dados
+    notas = notas.map(converterTipos);
 
     const resultados = [];
 
-    for (const item of notas) {
+    for (const nota of notas) {
       try {
-        const url = `${process.env.OURO_NEGRO_URL}?nota=${item.Serial}&serie=${item.SeriesStr}&remetente=${item.TaxIdNum}`;
-        console.log(`Fazendo requisição para: ${url}`);
+        // Garantir que serial seja número
+        const serialNumero = parseInt(nota.Serial, 10);
 
-        const apiResponse = await fetchWithRetry(url);
-
-        // Criar objeto de resposta com os dados da nota e os dados da Ouro Negro
-        resultados.push({
-          docNum: item.DocNum,
-          docEntry: item.DocEntry,
-          cardName: item.CardName,
-          docDate: item.DocDate,
-          serial: item.Serial,
-          seriesStr: item.SeriesStr,
-          carrierName: item.CarrierName,
-          bplName: item.BPLName,
-          rastreamento: apiResponse.data,
-          status: "success",
+        // Buscar no banco de dados primeiro
+        let tracking = await Tracking.findOne({
+          where: {
+            serial: serialNumero,
+            seriesStr: nota.SeriesStr,
+            taxIdNum: nota.TaxIdNum,
+            carrierName: nota.CarrierName,
+          },
         });
+
+        // Se não encontrou OU se precisa atualizar OU se está forçando atualização
+        if (
+          !tracking ||
+          precisaAtualizar(tracking, horasParaAtualizar) ||
+          forcarAtualizacao
+        ) {
+          console.log(`Atualizando dados da nota ${nota.Serial} da Ouro Negro`);
+
+          // Buscar dados atualizados da API
+          const dadosAtualizados = await obterDadosRastreamento(nota);
+
+          if (tracking) {
+            // Atualizar registro existente
+            tracking.trackingData = dadosAtualizados.rastreamento;
+            tracking.lastUpdated = new Date();
+            await tracking.save();
+          } else {
+            // Criar novo registro
+            tracking = await Tracking.create({
+              serial: serialNumero,
+              seriesStr: nota.SeriesStr,
+              taxIdNum: nota.TaxIdNum,
+              carrierName: nota.CarrierName,
+              docEntry: parseInt(nota.DocEntry, 10),
+              docNum: parseInt(nota.DocNum, 10),
+              trackingData: dadosAtualizados.rastreamento,
+              lastUpdated: new Date(),
+            });
+          }
+
+          resultados.push({
+            ...dadosAtualizados,
+            cacheStatus: "updated",
+          });
+        } else {
+          // Usar dados em cache
+          resultados.push({
+            docNum: nota.DocNum,
+            docEntry: nota.DocEntry,
+            cardName: nota.CardName,
+            docDate: nota.DocDate,
+            serial: nota.Serial,
+            seriesStr: nota.SeriesStr,
+            carrierName: nota.CarrierName,
+            bplName: nota.BPLName,
+            cidadeOrigem: nota.CidadeOrigem,
+            estadoOrigem: nota.EstadoOrigem,
+            cidadeDestino: nota.CidadeDestino,
+            estadoDestino: nota.EstadoDestino,
+            rastreamento: tracking.trackingData,
+            status: "success",
+            cacheStatus: "cached",
+            lastUpdated: tracking.lastUpdated,
+          });
+        }
       } catch (error) {
         console.error(
-          `Erro ao processar nota ${item.Serial}: ${error.message}`
+          `Erro ao processar nota ${nota.Serial}: ${error.message}`
         );
-
-        // Adiciona a nota com informação de erro
         resultados.push({
-          docNum: item.DocNum,
-          docEntry: item.DocEntry,
-          cardName: item.CardName,
-          docDate: item.DocDate,
-          serial: item.Serial,
-          seriesStr: item.SeriesStr,
-          carrierName: item.CarrierName,
-          bplName: item.BPLName,
+          docNum: nota.DocNum,
+          docEntry: nota.DocEntry,
+          cardName: nota.CardName,
+          docDate: nota.DocDate,
+          serial: nota.Serial,
+          seriesStr: nota.SeriesStr,
+          carrierName: nota.CarrierName,
+          bplName: nota.BPLName,
+          cidadeOrigem: nota.CidadeOrigem,
+          estadoOrigem: nota.EstadoOrigem,
+          cidadeDestino: nota.CidadeDestino,
+          estadoDestino: nota.EstadoDestino,
           rastreamento: null,
           status: "error",
-          errorMessage: `Não foi possível obter dados de rastreamento: ${error.message}`,
+          errorMessage: `Erro ao processar dados: ${error.message}`,
         });
       }
     }

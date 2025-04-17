@@ -11,6 +11,7 @@ const userRoutes = require("./routes/user.routes");
 const sessionRoutes = require("./routes/session.routes");
 const ouroNegroRoutes = require("./routes/ouroNegro.route");
 const alfaRoutes = require("./routes/alfa.route");
+const frotaRoutes = require("./routes/frota.route");
 
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -19,6 +20,7 @@ app.use("/user", userRoutes);
 app.use("/session", sessionRoutes);
 app.use("/ouroNegro", ouroNegroRoutes);
 app.use("/alfa", alfaRoutes);
+app.use("/frota", frotaRoutes);
 
 const sequelize = require("./config/database.config");
 
