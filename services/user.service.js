@@ -1,5 +1,5 @@
 const User = require("../models/user.model");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const sessionService = require("./session.service");
 const axios = require("axios");
 
