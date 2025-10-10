@@ -1,6 +1,6 @@
-const alfaService = require("../services/alfa.service");
+const genericService = require("../services/generic.service");
 
-const getDadosAlfa = async (req, res) => {
+const getDadosGeneric = async (req, res) => {
   try {
     // Obter a data do parâmetro da URL
     const data = req.params.data;
@@ -15,10 +15,10 @@ const getDadosAlfa = async (req, res) => {
     }
 
     // Buscar dados para a data específica
-    const dados = await alfaService.getDadosAlfa(data);
+    const dados = await genericService.getDadosGeneric(data);
     res.status(200).json(dados);
   } catch (error) {
-    console.error("Erro no controlador da Alfa:", error);
+    console.error("Erro no controlador genérico:", error);
     res.status(500).json({
       status: "error",
       message: "Erro ao buscar dados",
@@ -27,4 +27,4 @@ const getDadosAlfa = async (req, res) => {
   }
 };
 
-module.exports = { getDadosAlfa };
+module.exports = { getDadosGeneric };

@@ -13,6 +13,7 @@ const ouroNegroRoutes = require("./routes/ouroNegro.route");
 const alfaRoutes = require("./routes/alfa.route");
 const frotaRoutes = require("./routes/frota.route");
 const cteRoutes = require("./routes/cte.route");
+const genericRoutes = require("./routes/generic.route");
 
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -23,6 +24,7 @@ app.use("/ouroNegro", ouroNegroRoutes);
 app.use("/alfa", alfaRoutes);
 app.use("/frota", frotaRoutes);
 app.use("/cte", cteRoutes);
+app.use("/generic", genericRoutes);
 
 const sequelize = require("./config/database.config");
 

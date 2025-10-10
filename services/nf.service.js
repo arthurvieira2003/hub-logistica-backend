@@ -79,7 +79,6 @@ const getNotas = async (
 
     return notas;
   } catch (error) {
-    console.log(error);
     return null;
   }
 };

@@ -22,7 +22,6 @@ const fetchWithRetry = async (url, maxRetries = 3, timeout = 10000) => {
 
       return response;
     } catch (error) {
-      console.log(`Tentativa ${attempt + 1} falhou: ${error.message}`);
       lastError = error;
 
       // Se não for o último retry, aguarde antes de tentar novamente
@@ -52,7 +51,6 @@ const converterTipos = (nota) => {
 const obterDadosRastreamento = async (nota) => {
   try {
     const url = `${process.env.OURO_NEGRO_URL}?nota=${nota.Serial}&serie=${nota.SeriesStr}&remetente=${nota.TaxIdNum}`;
-    console.log(`Fazendo requisição para: ${url}`);
 
     const apiResponse = await fetchWithRetry(url);
 
@@ -150,8 +148,6 @@ const getDadosOuroNegro = async (options = {}) => {
           precisaAtualizar(tracking, horasParaAtualizar) ||
           forcarAtualizacao
         ) {
-          console.log(`Atualizando dados da nota ${nota.Serial} da Ouro Negro`);
-
           // Buscar dados atualizados da API
           const dadosAtualizados = await obterDadosRastreamento(nota);
 
@@ -229,7 +225,6 @@ const getDadosOuroNegro = async (options = {}) => {
 
     return resultados;
   } catch (error) {
-    console.log(`Erro geral no serviço Ouro Negro: ${error.message}`);
     return {
       status: "error",
       errorMessage: `Falha ao consultar serviço da Ouro Negro: ${error.message}`,
@@ -237,4 +232,151 @@ const getDadosOuroNegro = async (options = {}) => {
   }
 };
 
-module.exports = { getDadosOuroNegro };
+const getDadosOuroNegroPorData = async (options = {}) => {
+  try {
+    const {
+      forcarAtualizacao = false,
+      horasParaAtualizar = 4,
+      dataEspecifica,
+    } = options;
+
+    // Validar se a data foi fornecida
+    if (!dataEspecifica) {
+      throw new Error("Data específica é obrigatória");
+    }
+
+    // Validar formato da data
+    const regexData = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regexData.test(dataEspecifica)) {
+      throw new Error("Formato de data inválido. Use o formato YYYY-MM-DD");
+    }
+
+    // Buscar notas para a data específica
+    let notas = await nfService.getNotas(
+      "ouro negro",
+      1, // dias não é usado quando dataInicio e dataFim são fornecidos
+      dataEspecifica,
+      dataEspecifica
+    );
+
+    // Verificar se há notas para a data especificada
+    if (!notas || notas.length === 0) {
+      return {
+        status: "success",
+        message: `Nenhuma nota encontrada para a data ${dataEspecifica}`,
+        data: [],
+        total: 0,
+      };
+    }
+
+    // Converter tipos de dados
+    notas = notas.map(converterTipos);
+
+    const resultados = [];
+
+    for (const nota of notas) {
+      try {
+        // Garantir que serial seja número
+        const serialNumero = parseInt(nota.Serial, 10);
+
+        // Buscar no banco de dados primeiro
+        let tracking = await Tracking.findOne({
+          where: {
+            serial: serialNumero,
+            seriesStr: nota.SeriesStr,
+            taxIdNum: nota.TaxIdNum,
+            carrierName: nota.CarrierName,
+          },
+        });
+
+        // Se não encontrou OU se precisa atualizar OU se está forçando atualização
+        if (
+          !tracking ||
+          precisaAtualizar(tracking, horasParaAtualizar) ||
+          forcarAtualizacao
+        ) {
+          // Buscar dados atualizados da API
+          const dadosAtualizados = await obterDadosRastreamento(nota);
+
+          if (tracking) {
+            // Atualizar registro existente
+            tracking.trackingData = dadosAtualizados.rastreamento;
+            tracking.lastUpdated = new Date();
+            await tracking.save();
+          } else {
+            // Criar novo registro
+            tracking = await Tracking.create({
+              serial: serialNumero,
+              seriesStr: nota.SeriesStr,
+              taxIdNum: nota.TaxIdNum,
+              carrierName: nota.CarrierName,
+              docEntry: parseInt(nota.DocEntry, 10),
+              docNum: parseInt(nota.DocNum, 10),
+              trackingData: dadosAtualizados.rastreamento,
+              lastUpdated: new Date(),
+            });
+          }
+
+          resultados.push({
+            ...dadosAtualizados,
+            cacheStatus: "updated",
+          });
+        } else {
+          // Usar dados em cache
+          resultados.push({
+            docNum: nota.DocNum,
+            docEntry: nota.DocEntry,
+            cardName: nota.CardName,
+            docDate: nota.DocDate,
+            serial: nota.Serial,
+            seriesStr: nota.SeriesStr,
+            carrierName: nota.CarrierName,
+            bplName: nota.BPLName,
+            cidadeOrigem: nota.CidadeOrigem,
+            estadoOrigem: nota.EstadoOrigem,
+            cidadeDestino: nota.CidadeDestino,
+            estadoDestino: nota.EstadoDestino,
+            rastreamento: tracking.trackingData,
+            status: "success",
+            cacheStatus: "cached",
+            lastUpdated: tracking.lastUpdated,
+          });
+        }
+      } catch (error) {
+        console.error(
+          `Erro ao processar nota ${nota.Serial}: ${error.message}`
+        );
+        resultados.push({
+          docNum: nota.DocNum,
+          docEntry: nota.DocEntry,
+          cardName: nota.CardName,
+          docDate: nota.DocDate,
+          serial: nota.Serial,
+          seriesStr: nota.SeriesStr,
+          carrierName: nota.CarrierName,
+          bplName: nota.BPLName,
+          cidadeOrigem: nota.CidadeOrigem,
+          estadoOrigem: nota.EstadoOrigem,
+          cidadeDestino: nota.CidadeDestino,
+          estadoDestino: nota.EstadoDestino,
+          rastreamento: null,
+          status: "error",
+          errorMessage: `Erro ao processar dados: ${error.message}`,
+        });
+      }
+    }
+
+    if (resultados.length === 1) {
+      return resultados[0];
+    }
+
+    return resultados;
+  } catch (error) {
+    return {
+      status: "error",
+      errorMessage: `Falha ao consultar serviço da Ouro Negro: ${error.message}`,
+    };
+  }
+};
+
+module.exports = { getDadosOuroNegro, getDadosOuroNegroPorData };

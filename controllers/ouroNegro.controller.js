@@ -40,4 +40,40 @@ const getDadosOuroNegro = async (req, res) => {
   }
 };
 
-module.exports = { getDadosOuroNegro };
+const getDadosOuroNegroPorData = async (req, res) => {
+  try {
+    // Obter a data do parâmetro da URL
+    const data = req.params.data;
+
+    // Validar formato da data (YYYY-MM-DD)
+    const regexData = /^\d{4}-\d{2}-\d{2}$/;
+    if (!regexData.test(data)) {
+      return res.status(400).json({
+        status: "error",
+        message: "Formato de data inválido. Use o formato YYYY-MM-DD",
+      });
+    }
+
+    // Obter parâmetros de controle de cache da requisição
+    const forcarAtualizacao = req.query.forcarAtualizar === "true";
+    const horasParaAtualizar = req.query.horas ? parseInt(req.query.horas) : 4;
+
+    const options = {
+      forcarAtualizacao,
+      horasParaAtualizar,
+      dataEspecifica: data,
+    };
+
+    const dados = await ouroNegroService.getDadosOuroNegroPorData(options);
+    res.status(200).json(dados);
+  } catch (error) {
+    console.error("Erro no controlador da Ouro Negro:", error);
+    res.status(500).json({
+      status: "error",
+      message: "Erro ao buscar dados",
+      error: error.message,
+    });
+  }
+};
+
+module.exports = { getDadosOuroNegro, getDadosOuroNegroPorData };
