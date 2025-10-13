@@ -158,18 +158,6 @@ const getDadosGeneric = async (dataEspecifica) => {
     for (const nota of notasFiltradas) {
       try {
         const dadosAtualizados = await obterDadosRastreamentoSSW(nota);
-
-        // Verificar se a resposta da SSW indica que não foi encontrado documento
-        if (
-          dadosAtualizados.rastreamento &&
-          dadosAtualizados.rastreamento.success === false &&
-          dadosAtualizados.rastreamento.message ===
-            "Nenhum documento localizado"
-        ) {
-          // Não adicionar ao resultado se não foi encontrado
-          continue;
-        }
-
         resultados.push(dadosAtualizados);
       } catch (error) {
         console.error(
@@ -195,11 +183,11 @@ const getDadosGeneric = async (dataEspecifica) => {
       }
     }
 
-    // Verificar se após filtrar as notas não encontradas, não restou nenhuma
+    // Verificar se após processar todas as notas, não restou nenhuma
     if (resultados.length === 0) {
       return {
         status: "success",
-        message: `Nenhuma nota com rastreamento encontrada para a data ${dataEspecifica}`,
+        message: `Nenhuma nota de transportadora externa encontrada para a data ${dataEspecifica}`,
         data: [],
         total: 0,
       };
