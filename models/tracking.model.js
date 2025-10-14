@@ -34,7 +34,7 @@ const Tracking = sequelize.define(
       allowNull: false,
     },
     trackingData: {
-      type: DataTypes.JSONB,
+      type: DataTypes.JSON,
       allowNull: true,
     },
     lastUpdated: {
