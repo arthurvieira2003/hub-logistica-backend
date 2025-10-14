@@ -1,4 +1,3 @@
-const jwt = require("jsonwebtoken");
 const sessionService = require("../services/session.service");
 
 // Middleware para garantir que a sessão seja carregada antes de qualquer operação

@@ -46,9 +46,28 @@ const logoutSession = async (req, res) => {
   }
 };
 
+const terminateSession = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = await sessionService.terminateSession(id);
+
+    res.status(200).json({
+      message: "Sessão terminada com sucesso",
+      session: {
+        id: session.id,
+        userId: session.userId,
+        terminatedAt: new Date(),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   validateToken,
   getActiveSessions,
   getUserSessions,
   logoutSession,
+  terminateSession,
 };

@@ -121,6 +121,28 @@ const getUserSessions = async (userId) => {
   }
 };
 
+const terminateSession = async (sessionId) => {
+  try {
+    const session = await Session.findByPk(sessionId);
+
+    if (!session) {
+      throw new Error("Sessão não encontrada");
+    }
+
+    if (!session.isActive) {
+      throw new Error("Sessão já está inativa");
+    }
+
+    session.isActive = false;
+    await session.save();
+
+    return session;
+  } catch (error) {
+    console.error("Erro ao terminar sessão:", error);
+    throw error;
+  }
+};
+
 const cleanupExpiredSessions = async () => {
   try {
     // Marcar como inativas as sessões expiradas
@@ -148,5 +170,6 @@ module.exports = {
   deactivateSession,
   getActiveSessions,
   getUserSessions,
+  terminateSession,
   cleanupExpiredSessions,
 };
