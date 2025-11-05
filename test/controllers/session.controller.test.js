@@ -1,3 +1,23 @@
+// Mock do database.config antes de importar qualquer coisa
+jest.mock('../../config/database.config', () => {
+  return {};
+});
+
+// Mock dos modelos antes de importar os controllers
+jest.mock('../../models/user.model', () => {
+  return {};
+});
+
+jest.mock('../../models/session.model', () => {
+  return {
+    create: jest.fn(),
+    findOne: jest.fn(),
+    findAll: jest.fn(),
+    findByPk: jest.fn(),
+    update: jest.fn(),
+  };
+});
+
 const sessionController = require('../../controllers/session.controller');
 const sessionService = require('../../services/session.service');
 const { createMockRequest, createMockResponse } = require('../helpers/mockFactory');
