@@ -1,3 +1,15 @@
+// Mock do database.config antes de importar qualquer coisa
+jest.mock("../../config/database.config", () => {
+  return {
+    define: jest.fn(),
+  };
+});
+
+// Mock do session.model antes de importar o middleware
+jest.mock("../../models/session.model", () => {
+  return {};
+});
+
 const sessionMiddleware = require("../../middleware/session.middleware");
 const sessionService = require("../../services/session.service");
 const {

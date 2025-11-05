@@ -1,3 +1,18 @@
+// Mock do database.config antes de importar qualquer coisa
+jest.mock('../../config/database.config', () => {
+  return {
+    define: jest.fn(),
+  };
+});
+
+// Mock do tracking.model antes de importar o serviço
+jest.mock('../../models/tracking.model', () => {
+  return {
+    findOne: jest.fn(),
+    create: jest.fn(),
+  };
+});
+
 const ouroNegroService = require('../../services/ouroNegro.service');
 const nfService = require('../../services/nf.service');
 const Tracking = require('../../models/tracking.model');
@@ -5,7 +20,6 @@ const axios = require('axios');
 
 // Mock dos módulos
 jest.mock('../../services/nf.service');
-jest.mock('../../models/tracking.model');
 jest.mock('axios');
 
 require('dotenv').config();
