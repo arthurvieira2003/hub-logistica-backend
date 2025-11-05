@@ -1,0 +1,29 @@
+module.exports = {
+  testEnvironment: 'node',
+  coverageDirectory: 'coverage',
+  collectCoverageFrom: [
+    '**/*.js',
+    '!**/node_modules/**',
+    '!**/coverage/**',
+    '!**/test/**',
+    '!jest.config.js',
+    '!app.js',
+    '!sync-db.js',
+    '!create-user.js',
+    '!update-admin.js',
+    '!**/*.test.js',
+    '!**/*.spec.js',
+  ],
+  testMatch: [
+    '**/__tests__/**/*.js',
+    '**/*.test.js',
+    '**/*.spec.js',
+  ],
+  coverageReporters: ['text', 'lcov', 'html'],
+  setupFilesAfterEnv: ['<rootDir>/test/setup.js'],
+  verbose: true,
+  clearMocks: true,
+  resetMocks: true,
+  restoreMocks: true,
+};
+
