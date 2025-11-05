@@ -28,7 +28,7 @@ const downloadPDF = async (req, res) => {
     const pdfBuffer = await cteService.getPDFByChave(serial);
 
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=${chave}.pdf`);
+    res.setHeader("Content-Disposition", `attachment; filename=${serial}.pdf`);
     res.send(pdfBuffer);
   } catch (error) {
     res.status(404).json({ error: "PDF não encontrado" });
