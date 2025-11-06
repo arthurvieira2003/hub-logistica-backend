@@ -35,8 +35,19 @@ const downloadPDF = async (req, res) => {
   }
 };
 
+const getCTEBySerial = async (req, res) => {
+  try {
+    const { serial } = req.params;
+    const cte = await cteService.getCTEBySerial(serial);
+    res.json(cte);
+  } catch (error) {
+    res.status(404).json({ message: "CT-E não encontrado", error: error.message });
+  }
+};
+
 module.exports = {
   getCTEs,
+  getCTEBySerial,
   downloadXML,
   downloadPDF,
 };
