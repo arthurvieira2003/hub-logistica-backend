@@ -68,6 +68,30 @@ const PrecosFaixas = sequelize.define(
       type: DataTypes.DECIMAL,
       allowNull: true,
     },
+    frete_valor: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    griss_minimo: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    qtde_praca: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    fracao: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    minimo: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
+    sigla_praca: {
+      type: DataTypes.STRING(50),
+      allowNull: true,
+    },
     data_vigencia_inicio: {
       type: DataTypes.DATEONLY,
       allowNull: false,

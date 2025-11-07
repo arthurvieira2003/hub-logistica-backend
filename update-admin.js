@@ -13,7 +13,6 @@ async function makeUserAdmin(email) {
   try {
     // Conectar ao banco de dados
     await sequelize.authenticate();
-    console.log("Conexão com o banco de dados estabelecida com sucesso.");
 
     // Sincronizar o modelo (garantir que a tabela esteja atualizada)
     await sequelize.sync({ force: false });
@@ -29,15 +28,6 @@ async function makeUserAdmin(email) {
     // Atualizar para administrador
     user.isAdmin = true;
     await user.save();
-
-    console.log("\nUsuário atualizado como administrador com sucesso:");
-    console.log({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      isAdmin: user.isAdmin,
-      updatedAt: user.updatedAt,
-    });
 
     return user;
   } catch (error) {
@@ -61,8 +51,6 @@ function askQuestion(question) {
 
 // Função principal
 async function main() {
-  console.log("=== Definir Usuário como Administrador ===");
-
   try {
     const email = await askQuestion("Email do usuário: ");
 

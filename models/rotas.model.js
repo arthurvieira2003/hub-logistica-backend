@@ -51,8 +51,8 @@ const Rotas = sequelize.define(
   }
 );
 
-Rotas.belongsTo(Cidades, { foreignKey: "id_cidade_origem" });
-Rotas.belongsTo(Cidades, { foreignKey: "id_cidade_destino" });
+Rotas.belongsTo(Cidades, { foreignKey: "id_cidade_origem", as: "CidadeOrigem" });
+Rotas.belongsTo(Cidades, { foreignKey: "id_cidade_destino", as: "CidadeDestino" });
 Cidades.hasMany(Rotas, { foreignKey: "id_cidade_origem", as: "RotasOrigem" });
 Cidades.hasMany(Rotas, { foreignKey: "id_cidade_destino", as: "RotasDestino" });
 

@@ -14,7 +14,6 @@ async function createUser(name, email, password) {
   try {
     // Conectar ao banco de dados
     await sequelize.authenticate();
-    console.log("Conexão com o banco de dados estabelecida com sucesso.");
 
     // Sincronizar o modelo (garantir que a tabela exista)
     await sequelize.sync({ force: false });
@@ -28,15 +27,6 @@ async function createUser(name, email, password) {
       email,
       password: encryptedPassword,
       status: "active",
-    });
-
-    console.log("\nUsuário criado com sucesso:");
-    console.log({
-      id: newUser.id,
-      name: newUser.name,
-      email: newUser.email,
-      status: newUser.status,
-      createdAt: newUser.createdAt,
     });
 
     return newUser;
@@ -61,8 +51,6 @@ function askQuestion(question) {
 
 // Função principal
 async function main() {
-  console.log("=== Criação de Usuário ===");
-
   try {
     const name = await askQuestion("Nome: ");
     const email = await askQuestion("Email: ");

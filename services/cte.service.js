@@ -7,10 +7,29 @@ require("dotenv").config();
 
 const parseString = promisify(xml2js.parseString);
 
-const getCTEs = async () => {
+const getCTEs = async (dataFiltro = null) => {
   try {
-    const query =
-      'SELECT "Serial","CardName","DateAdd","DocTotal","XmlFile" FROM "DBInvOne"."DocReceived" ORDER BY "DateAdd" DESC LIMIT 100';
+    // Se dataFiltro for fornecida, filtrar por data específica
+    // Caso contrário, usar data atual
+    let dataParaFiltro = dataFiltro;
+    if (!dataParaFiltro) {
+      const hoje = new Date();
+      const ano = hoje.getFullYear();
+      const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+      const dia = String(hoje.getDate()).padStart(2, "0");
+      dataParaFiltro = `${ano}-${mes}-${dia}`;
+    }
+
+    // Construir query com filtro de data
+    // DateAdd é do tipo datetime, então precisamos filtrar pelo dia inteiro
+    // Usar >= início do dia e < início do próximo dia
+    const dataInicio = `${dataParaFiltro} 00:00:00`;
+    const dataFim = `${dataParaFiltro} 23:59:59`;
+    const query = `SELECT "Serial","CardName","DateAdd","DocTotal","XmlFile" 
+      FROM "DBInvOne"."DocReceived" 
+      WHERE "DateAdd" >= '${dataInicio}' AND "DateAdd" <= '${dataFim}'
+      ORDER BY "DateAdd" DESC 
+      LIMIT 100`;
     const encodedQuery = encodeURIComponent(query);
 
     const response = await axios.get(process.env.WS_URL, {

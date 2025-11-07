@@ -2,7 +2,9 @@ const cteService = require("../services/cte.service");
 
 const getCTEs = async (req, res) => {
   try {
-    const ctes = await cteService.getCTEs();
+    // Obter parâmetro de data (formato YYYY-MM-DD) ou usar data atual
+    const dataFiltro = req.query.data || null;
+    const ctes = await cteService.getCTEs(dataFiltro);
     res.json(ctes);
   } catch (error) {
     res.status(500).json({ message: "Erro ao buscar CTEs", error });
@@ -45,9 +47,27 @@ const getCTEBySerial = async (req, res) => {
   }
 };
 
+const validarPrecoCTE = async (req, res) => {
+  try {
+    const { serial } = req.params;
+    const cte = await cteService.getCTEBySerial(serial);
+    
+    const precoValidationService = require("../services/precoValidation.service");
+    const validacao = await precoValidationService.validarPrecoCTE(cte);
+    
+    res.json(validacao);
+  } catch (error) {
+    res.status(500).json({ 
+      message: "Erro ao validar preço do CT-e", 
+      error: error.message 
+    });
+  }
+};
+
 module.exports = {
   getCTEs,
   getCTEBySerial,
   downloadXML,
   downloadPDF,
+  validarPrecoCTE,
 };

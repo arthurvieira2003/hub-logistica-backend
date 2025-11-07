@@ -9,7 +9,6 @@ async function syncDatabase() {
   try {
     // Testar conexão
     await sequelize.authenticate();
-    console.log("Conexão com o banco de dados estabelecida com sucesso.");
 
     // Sincronizar todos os modelos
     // Usar {force: true} apenas em ambiente de desenvolvimento/teste para recriar tabelas
@@ -17,14 +16,10 @@ async function syncDatabase() {
     const forceSync = process.argv.includes("--force");
 
     if (forceSync) {
-      console.log("Recriando todas as tabelas (--force)");
       await sequelize.sync({ force: true });
     } else {
-      console.log("Atualizando esquema do banco de dados (alteração segura)");
       await sequelize.sync({ alter: true });
     }
-
-    console.log("Banco de dados sincronizado com sucesso!");
 
     process.exit(0);
   } catch (error) {
