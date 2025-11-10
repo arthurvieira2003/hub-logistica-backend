@@ -269,6 +269,7 @@ const getDashboardStats = async (period = "week") => {
                 entregues: 0,
                 noPrazo: 0,
                 atrasadas: 0,
+                temposEntrega: [], // Array para armazenar tempos de entrega
               };
             }
 
@@ -289,6 +290,9 @@ const getDashboardStats = async (period = "week") => {
                   const diasEntrega = Math.ceil(
                     (dataEntrega - dataEmissaoDate) / (1000 * 60 * 60 * 24)
                   );
+                  // Armazenar tempo de entrega
+                  desempenhoTransportadoras[transportadora].temposEntrega.push(diasEntrega);
+                  
                   if (diasEntrega <= 5) {
                     desempenhoTransportadoras[transportadora].noPrazo++;
                   } else {
@@ -390,20 +394,38 @@ const getDashboardStats = async (period = "week") => {
     }
 
     // Calcular desempenho das transportadoras
-    const desempenhoArray = Object.values(desempenhoTransportadoras).map(
-      (desempenho) => {
+    const desempenhoArray = Object.values(desempenhoTransportadoras)
+      .map((desempenho) => {
         const pontualidade =
           desempenho.total > 0
             ? Math.round((desempenho.noPrazo / desempenho.total) * 100)
             : 0;
+        
+        // Calcular tempo médio de entrega
+        const tempoMedioEntrega =
+          desempenho.temposEntrega && desempenho.temposEntrega.length > 0
+            ? desempenho.temposEntrega.reduce((a, b) => a + b, 0) / desempenho.temposEntrega.length
+            : 0;
+
         return {
           nome: desempenho.nome,
           pontualidade,
+          tempoMedioEntrega: Math.round(tempoMedioEntrega * 10) / 10, // Arredondar para 1 casa decimal
+          prazoEsperado: 5, // Prazo padrão de 5 dias
+          totalEntregas: desempenho.total,
+          entreguesNoPrazo: desempenho.noPrazo,
+          entreguesAtrasadas: desempenho.atrasadas,
           avarias: 0, // Não temos dados de avarias ainda
           extravio: 0, // Não temos dados de extravio ainda
         };
-      }
-    );
+      })
+      // Ordenar por pontualidade (maior primeiro) e depois por tempo médio (menor primeiro)
+      .sort((a, b) => {
+        if (b.pontualidade !== a.pontualidade) {
+          return b.pontualidade - a.pontualidade;
+        }
+        return a.tempoMedioEntrega - b.tempoMedioEntrega;
+      });
 
     // Calcular SLA das transportadoras
     const slaArray = Object.values(desempenhoTransportadoras).map(

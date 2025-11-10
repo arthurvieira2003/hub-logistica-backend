@@ -91,10 +91,12 @@ const buscarCidadePorNome = async (nomeCidade, uf) => {
 };
 
 /**
- * Busca transportadora por nome (com busca flexível)
+ * Busca transportadora por nome (comparação case-insensitive da razão social)
  */
 const buscarTransportadoraPorNome = async (nomeTransportadora) => {
   try {
+    if (!nomeTransportadora) return null;
+
     const nomeNormalizado = normalizarNomeCidade(nomeTransportadora);
 
     // Buscar todas as transportadoras ativas
@@ -102,25 +104,10 @@ const buscarTransportadoraPorNome = async (nomeTransportadora) => {
       where: { ativa: true },
     });
 
-    // Tentar match exato primeiro
-    let transportadora = transportadoras.find(
-      (t) =>
-        normalizarNomeCidade(t.nome_transportadora) === nomeNormalizado ||
-        normalizarNomeCidade(t.razao_social) === nomeNormalizado
-    );
-
-    if (transportadora) return transportadora;
-
-    // Tentar busca parcial
-    transportadora = transportadoras.find((t) => {
-      const nomeTransp = normalizarNomeCidade(t.nome_transportadora);
+    // Buscar por match exato (case-insensitive) na razão social
+    const transportadora = transportadoras.find((t) => {
       const razaoSocial = normalizarNomeCidade(t.razao_social || "");
-      return (
-        nomeTransp.includes(nomeNormalizado) ||
-        nomeNormalizado.includes(nomeTransp) ||
-        razaoSocial.includes(nomeNormalizado) ||
-        nomeNormalizado.includes(razaoSocial)
-      );
+      return razaoSocial === nomeNormalizado;
     });
 
     return transportadora || null;
@@ -412,11 +399,25 @@ const validarPrecoCTE = async (cteData) => {
       transportadoraNome
     );
     if (!transportadora) {
+      // Buscar todas as transportadoras para log de debug
+      const todasTransportadoras = await Transportadoras.findAll({
+        where: { ativa: true },
+        attributes: [
+          "id_transportadora",
+          "nome_transportadora",
+          "razao_social",
+        ],
+      });
+
       writeLogToFile(
         `❌ [Validação Preço] Transportadora não encontrada: ${transportadoraNome}`,
         {
           ...logInitial,
-          transportadorasDisponiveis: "Verificar banco de dados",
+          transportadorasDisponiveis: todasTransportadoras.map((t) => ({
+            id: t.id_transportadora,
+            nome: t.nome_transportadora,
+            razao_social: t.razao_social,
+          })),
         }
       );
       return {
