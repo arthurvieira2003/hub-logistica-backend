@@ -1,5 +1,5 @@
 // Mock dos modelos antes de importar os serviços
-jest.mock('../../models/user.model', () => {
+jest.mock("../../models/user.model", () => {
   return {
     findByPk: jest.fn(),
     findOne: jest.fn(),
@@ -8,45 +8,45 @@ jest.mock('../../models/user.model', () => {
   };
 });
 
-jest.mock('../../models/session.model', () => {
+jest.mock("../../models/session.model", () => {
   return {};
 });
 
-const userService = require('../../services/user.service');
-const User = require('../../models/user.model');
-const bcrypt = require('bcryptjs');
-const sessionService = require('../../services/session.service');
-const axios = require('axios');
+const userService = require("../../services/user.service");
+const User = require("../../models/user.model");
+const bcrypt = require("bcryptjs");
+const sessionService = require("../../services/session.service");
+const axios = require("axios");
 
 // Mock dos outros módulos
-jest.mock('bcryptjs');
-jest.mock('../../services/session.service');
-jest.mock('axios');
+jest.mock("bcryptjs");
+jest.mock("../../services/session.service");
+jest.mock("axios");
 
-describe('User Service', () => {
+describe("User Service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('createUser', () => {
-    it('deve criar um novo usuário com sucesso', async () => {
-      const email = 'test@example.com';
-      const password = 'password123';
+  describe("createUser", () => {
+    it("deve criar um novo usuário com sucesso", async () => {
+      const email = "test@example.com";
+      const password = "password123";
       const mockUserSesuite = [
         {
           dsuseremail: email,
-          nmuser: 'Test User',
+          nmuser: "Test User",
         },
       ];
       const mockUser = {
         id: 1,
-        name: 'Test User',
+        name: "Test User",
         email: email,
-        password: 'hashedPassword',
+        password: "hashedPassword",
       };
 
       axios.get.mockResolvedValue({ data: mockUserSesuite });
-      bcrypt.hash.mockResolvedValue('hashedPassword');
+      bcrypt.hash.mockResolvedValue("hashedPassword");
       User.create.mockResolvedValue(mockUser);
 
       const result = await userService.createUser(email, password);
@@ -54,53 +54,53 @@ describe('User Service', () => {
       expect(axios.get).toHaveBeenCalled();
       expect(bcrypt.hash).toHaveBeenCalledWith(password, 10);
       expect(User.create).toHaveBeenCalledWith({
-        name: 'Test User',
+        name: "Test User",
         email: email,
-        password: 'hashedPassword',
+        password: "hashedPassword",
       });
       expect(result).toEqual(mockUser);
     });
 
-    it('deve lançar erro quando usuário não é encontrado no Sesuite', async () => {
-      const email = 'notfound@example.com';
-      const password = 'password123';
+    it("deve lançar erro quando usuário não é encontrado no Sesuite", async () => {
+      const email = "notfound@example.com";
+      const password = "password123";
       const mockUserSesuite = [];
 
       axios.get.mockResolvedValue({ data: mockUserSesuite });
 
       await expect(userService.createUser(email, password)).rejects.toThrow(
-        'Usuário não encontrado ou desativado'
+        "Usuário não encontrado ou desativado"
       );
       expect(User.create).not.toHaveBeenCalled();
     });
 
-    it('deve lançar erro quando ocorre falha na criação', async () => {
-      const email = 'test@example.com';
-      const password = 'password123';
+    it("deve lançar erro quando ocorre falha na criação", async () => {
+      const email = "test@example.com";
+      const password = "password123";
       const mockUserSesuite = [
         {
           dsuseremail: email,
-          nmuser: 'Test User',
+          nmuser: "Test User",
         },
       ];
 
       axios.get.mockResolvedValue({ data: mockUserSesuite });
-      bcrypt.hash.mockResolvedValue('hashedPassword');
-      User.create.mockRejectedValue(new Error('Database error'));
+      bcrypt.hash.mockResolvedValue("hashedPassword");
+      User.create.mockRejectedValue(new Error("Database error"));
 
       await expect(userService.createUser(email, password)).rejects.toThrow(
-        'Database error'
+        "Database error"
       );
     });
   });
 
-  describe('getUser', () => {
-    it('deve retornar um usuário pelo ID', async () => {
+  describe("getUser", () => {
+    it("deve retornar um usuário pelo ID", async () => {
       const userId = 1;
       const mockUser = {
         id: userId,
-        name: 'Test User',
-        email: 'test@example.com',
+        name: "Test User",
+        email: "test@example.com",
       };
 
       User.findByPk.mockResolvedValue(mockUser);
@@ -111,7 +111,7 @@ describe('User Service', () => {
       expect(result).toEqual(mockUser);
     });
 
-    it('deve retornar null quando usuário não é encontrado', async () => {
+    it("deve retornar null quando usuário não é encontrado", async () => {
       const userId = 999;
 
       User.findByPk.mockResolvedValue(null);
@@ -122,14 +122,14 @@ describe('User Service', () => {
     });
   });
 
-  describe('updatePassword', () => {
-    it('deve atualizar a senha do usuário', async () => {
-      const email = 'test@example.com';
-      const newPassword = 'newPassword123';
+  describe("updatePassword", () => {
+    it("deve atualizar a senha do usuário", async () => {
+      const email = "test@example.com";
+      const newPassword = "newPassword123";
       const mockUser = {
         id: 1,
         email: email,
-        password: 'oldPassword',
+        password: "oldPassword",
         save: jest.fn().mockResolvedValue(true),
       };
 
@@ -143,26 +143,26 @@ describe('User Service', () => {
       expect(result).toEqual(mockUser);
     });
 
-    it('deve lançar erro quando usuário não é encontrado', async () => {
-      const email = 'notfound@example.com';
-      const newPassword = 'newPassword123';
+    it("deve lançar erro quando usuário não é encontrado", async () => {
+      const email = "notfound@example.com";
+      const newPassword = "newPassword123";
 
       User.findOne.mockResolvedValue(null);
 
       await expect(
         userService.updatePassword(email, newPassword)
-      ).rejects.toThrow('Usuário não encontrado');
+      ).rejects.toThrow("Usuário não encontrado");
     });
   });
 
-  describe('changeStatus', () => {
-    it('deve alterar o status do usuário', async () => {
-      const email = 'test@example.com';
-      const newStatus = 'inactive';
+  describe("changeStatus", () => {
+    it("deve alterar o status do usuário", async () => {
+      const email = "test@example.com";
+      const newStatus = "inactive";
       const mockUser = {
         id: 1,
         email: email,
-        status: 'active',
+        status: "active",
         save: jest.fn().mockResolvedValue(true),
       };
 
@@ -176,23 +176,23 @@ describe('User Service', () => {
       expect(result).toEqual(mockUser);
     });
 
-    it('deve lançar erro quando usuário não é encontrado', async () => {
-      const email = 'notfound@example.com';
-      const newStatus = 'inactive';
+    it("deve lançar erro quando usuário não é encontrado", async () => {
+      const email = "notfound@example.com";
+      const newStatus = "inactive";
 
       User.findOne.mockResolvedValue(null);
 
-      await expect(
-        userService.changeStatus(email, newStatus)
-      ).rejects.toThrow('Usuário não encontrado');
+      await expect(userService.changeStatus(email, newStatus)).rejects.toThrow(
+        "Usuário não encontrado"
+      );
     });
   });
 
-  describe('getAllUsers', () => {
-    it('deve retornar todos os usuários', async () => {
+  describe("getAllUsers", () => {
+    it("deve retornar todos os usuários", async () => {
       const mockUsers = [
-        { id: 1, name: 'User 1', email: 'user1@example.com' },
-        { id: 2, name: 'User 2', email: 'user2@example.com' },
+        { id: 1, name: "User 1", email: "user1@example.com" },
+        { id: 2, name: "User 2", email: "user2@example.com" },
       ];
 
       User.findAll.mockResolvedValue(mockUsers);
@@ -204,20 +204,20 @@ describe('User Service', () => {
     });
   });
 
-  describe('authenticateUser', () => {
-    it('deve autenticar usuário e retornar token', async () => {
-      const email = 'test@example.com';
-      const password = 'password123';
-      const hashedPassword = 'hashedPassword';
+  describe("authenticateUser", () => {
+    it("deve autenticar usuário e retornar token", async () => {
+      const email = "test@example.com";
+      const password = "password123";
+      const hashedPassword = "hashedPassword";
       const mockUser = {
         id: 1,
         email: email,
         password: hashedPassword,
       };
-      const mockToken = 'jwt-token';
+      const mockToken = "jwt-token";
       const mockRequest = {
-        ip: '127.0.0.1',
-        headers: { 'user-agent': 'test-agent' },
+        ip: "127.0.0.1",
+        headers: { "user-agent": "test-agent" },
       };
 
       User.findOne.mockResolvedValue(mockUser);
@@ -242,22 +242,22 @@ describe('User Service', () => {
       expect(result).toBe(mockToken);
     });
 
-    it('deve lançar erro quando usuário não é encontrado', async () => {
-      const email = 'notfound@example.com';
-      const password = 'password123';
+    it("deve lançar erro quando usuário não é encontrado", async () => {
+      const email = "notfound@example.com";
+      const password = "password123";
       const mockRequest = {};
 
       User.findOne.mockResolvedValue(null);
 
       await expect(
         userService.authenticateUser(email, password, mockRequest)
-      ).rejects.toThrow('Usuário não encontrado');
+      ).rejects.toThrow("Usuário não encontrado");
     });
 
-    it('deve lançar erro quando senha é inválida', async () => {
-      const email = 'test@example.com';
-      const password = 'wrongPassword';
-      const hashedPassword = 'hashedPassword';
+    it("deve lançar erro quando senha é inválida", async () => {
+      const email = "test@example.com";
+      const password = "wrongPassword";
+      const hashedPassword = "hashedPassword";
       const mockUser = {
         id: 1,
         email: email,
@@ -270,14 +270,14 @@ describe('User Service', () => {
 
       await expect(
         userService.authenticateUser(email, password, mockRequest)
-      ).rejects.toThrow('Senha inválida');
+      ).rejects.toThrow("Senha inválida");
     });
   });
 
-  describe('updateUserPicture', () => {
-    it('deve atualizar a foto de perfil do usuário', async () => {
-      const email = 'test@example.com';
-      const image = 'base64encodedimage';
+  describe("updateUserPicture", () => {
+    it("deve atualizar a foto de perfil do usuário", async () => {
+      const email = "test@example.com";
+      const image = "base64encodedimage";
       const mockUser = {
         id: 1,
         email: email,
@@ -295,25 +295,25 @@ describe('User Service', () => {
       expect(result).toEqual(mockUser);
     });
 
-    it('deve lançar erro quando usuário não é encontrado', async () => {
-      const email = 'notfound@example.com';
-      const image = 'base64encodedimage';
+    it("deve lançar erro quando usuário não é encontrado", async () => {
+      const email = "notfound@example.com";
+      const image = "base64encodedimage";
 
       User.findOne.mockResolvedValue(null);
 
-      await expect(
-        userService.updateUserPicture(email, image)
-      ).rejects.toThrow('Usuário não encontrado');
+      await expect(userService.updateUserPicture(email, image)).rejects.toThrow(
+        "Usuário não encontrado"
+      );
     });
   });
 
-  describe('getUserPicture', () => {
-    it('deve retornar a foto de perfil do usuário', async () => {
-      const email = 'test@example.com';
+  describe("getUserPicture", () => {
+    it("deve retornar a foto de perfil do usuário", async () => {
+      const email = "test@example.com";
       const mockUser = {
         id: 1,
         email: email,
-        profile_picture: 'base64encodedimage',
+        profile_picture: "base64encodedimage",
       };
 
       User.findOne.mockResolvedValue(mockUser);
@@ -321,13 +321,13 @@ describe('User Service', () => {
       const result = await userService.getUserPicture(email);
 
       expect(User.findOne).toHaveBeenCalledWith({ where: { email } });
-      expect(result).toBe('base64encodedimage');
+      expect(result).toBe("base64encodedimage");
     });
   });
 
-  describe('updateAdminStatus', () => {
-    it('deve atualizar o status de administrador', async () => {
-      const email = 'test@example.com';
+  describe("updateAdminStatus", () => {
+    it("deve atualizar o status de administrador", async () => {
+      const email = "test@example.com";
       const isAdmin = true;
       const mockUser = {
         id: 1,
@@ -347,14 +347,14 @@ describe('User Service', () => {
     });
   });
 
-  describe('updateUserNameAndEmail', () => {
-    it('deve atualizar nome e email do usuário', async () => {
-      const email = 'newemail@example.com';
-      const name = 'New Name';
+  describe("updateUserNameAndEmail", () => {
+    it("deve atualizar nome e email do usuário", async () => {
+      const email = "newemail@example.com";
+      const name = "New Name";
       const mockUser = {
         id: 1,
-        email: 'oldemail@example.com',
-        name: 'Old Name',
+        email: "oldemail@example.com",
+        name: "Old Name",
         save: jest.fn().mockResolvedValue(true),
       };
 
@@ -370,4 +370,3 @@ describe('User Service', () => {
     });
   });
 });
-

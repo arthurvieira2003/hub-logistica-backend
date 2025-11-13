@@ -1,0 +1,55 @@
+require("dotenv").config();
+const os = require("os");
+
+module.exports = {
+  loki: {
+    host: process.env.LOKI_HOST || "189.126.105.186",
+    port: process.env.LOKI_PORT || "3100",
+    endpoint: process.env.LOKI_ENDPOINT || "/loki/api/v1/push",
+    get url() {
+      return `http://${this.host}:${this.port}${this.endpoint}`;
+    },
+  },
+  app: {
+    name: process.env.APP_NAME || "hub-logistica-backend",
+    env: process.env.ENV || process.env.NODE_ENV || "development",
+    version: process.env.APP_VERSION || "1.0.0",
+    hostname: os.hostname(),
+    service: process.env.SERVICE_NAME || "api",
+  },
+  log: {
+    level: process.env.LOG_LEVEL || "info",
+    batchSize: parseInt(process.env.LOG_BATCH_SIZE || "10", 10),
+    batchInterval: parseInt(process.env.LOG_BATCH_INTERVAL || "5000", 10), // ms
+    maxRetries: parseInt(process.env.LOG_MAX_RETRIES || "3", 10),
+    retryDelay: parseInt(process.env.LOG_RETRY_DELAY || "1000", 10), // ms
+    circuitBreakerThreshold: parseInt(
+      process.env.LOG_CIRCUIT_BREAKER_THRESHOLD || "5",
+      10
+    ),
+    circuitBreakerTimeout: parseInt(
+      process.env.LOG_CIRCUIT_BREAKER_TIMEOUT || "60000",
+      10
+    ), // ms
+  },
+  sanitize: {
+    // Campos que devem ser sanitizados (valores serão substituídos por '***')
+    sensitiveFields: [
+      "password",
+      "senha",
+      "token",
+      "accessToken",
+      "refreshToken",
+      "authorization",
+      "apiKey",
+      "apikey",
+      "secret",
+      "secretKey",
+      "privateKey",
+      "creditCard",
+      "cardNumber",
+      "cvv",
+      "cvc",
+    ],
+  },
+};

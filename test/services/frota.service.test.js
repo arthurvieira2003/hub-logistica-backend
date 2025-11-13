@@ -1,25 +1,25 @@
-const frotaService = require('../../services/frota.service');
-const axios = require('axios');
-const https = require('https');
+const frotaService = require("../../services/frota.service");
+const axios = require("axios");
+const https = require("https");
 
 // Mock dos módulos
-jest.mock('axios');
-jest.mock('https');
+jest.mock("axios");
+jest.mock("https");
 
-require('dotenv').config();
+require("dotenv").config();
 
-describe('Frota Service', () => {
+describe("Frota Service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.SE_URL = 'https://test-api.example.com';
-    process.env.SE_SECRET = 'test-secret';
+    process.env.SE_URL = "https://test-api.example.com";
+    process.env.SE_SECRET = "test-secret";
   });
 
-  describe('getFrota', () => {
-    it('deve retornar dados da frota com sucesso', async () => {
+  describe("getFrota", () => {
+    it("deve retornar dados da frota com sucesso", async () => {
       const mockFrota = [
-        { id: 1, placa: 'ABC1234', modelo: 'Scania' },
-        { id: 2, placa: 'XYZ5678', modelo: 'Volvo' },
+        { id: 1, placa: "ABC1234", modelo: "Scania" },
+        { id: 2, placa: "XYZ5678", modelo: "Volvo" },
       ];
 
       axios.get = jest.fn().mockResolvedValue({ data: mockFrota });
@@ -38,15 +38,15 @@ describe('Frota Service', () => {
       expect(result).toEqual(mockFrota);
     });
 
-    it('deve lançar erro quando a requisição falha', async () => {
-      const errorMessage = 'Erro de conexão';
+    it("deve lançar erro quando a requisição falha", async () => {
+      const errorMessage = "Erro de conexão";
       axios.get = jest.fn().mockRejectedValue(new Error(errorMessage));
 
       await expect(frotaService.getFrota()).rejects.toThrow(errorMessage);
     });
 
-    it('deve usar o agent HTTPS correto', async () => {
-      const mockFrota = [{ id: 1, placa: 'ABC1234' }];
+    it("deve usar o agent HTTPS correto", async () => {
+      const mockFrota = [{ id: 1, placa: "ABC1234" }];
       axios.get = jest.fn().mockResolvedValue({ data: mockFrota });
 
       await frotaService.getFrota();
@@ -59,20 +59,20 @@ describe('Frota Service', () => {
     });
   });
 
-  describe('getManutencoes', () => {
-    it('deve retornar dados de manutenções com sucesso', async () => {
+  describe("getManutencoes", () => {
+    it("deve retornar dados de manutenções com sucesso", async () => {
       const mockManutencoes = [
         {
           id: 1,
-          veiculo: 'ABC1234',
-          tipo: 'Preventiva',
-          data: '2024-01-15',
+          veiculo: "ABC1234",
+          tipo: "Preventiva",
+          data: "2024-01-15",
         },
         {
           id: 2,
-          veiculo: 'XYZ5678',
-          tipo: 'Corretiva',
-          data: '2024-01-20',
+          veiculo: "XYZ5678",
+          tipo: "Corretiva",
+          data: "2024-01-20",
         },
       ];
 
@@ -92,14 +92,11 @@ describe('Frota Service', () => {
       expect(result).toEqual(mockManutencoes);
     });
 
-    it('deve lançar erro quando a requisição falha', async () => {
-      const errorMessage = 'Erro ao buscar manutenções';
+    it("deve lançar erro quando a requisição falha", async () => {
+      const errorMessage = "Erro ao buscar manutenções";
       axios.get = jest.fn().mockRejectedValue(new Error(errorMessage));
 
-      await expect(frotaService.getManutencoes()).rejects.toThrow(
-        errorMessage
-      );
+      await expect(frotaService.getManutencoes()).rejects.toThrow(errorMessage);
     });
   });
 });
-

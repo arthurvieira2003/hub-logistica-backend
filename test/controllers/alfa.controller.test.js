@@ -1,16 +1,19 @@
 // Mock do database.config antes de importar qualquer coisa
-jest.mock('../../config/database.config', () => {
+jest.mock("../../config/database.config", () => {
   return {};
 });
 
-const alfaController = require('../../controllers/alfa.controller');
-const alfaService = require('../../services/alfa.service');
-const { createMockRequest, createMockResponse } = require('../helpers/mockFactory');
+const alfaController = require("../../controllers/alfa.controller");
+const alfaService = require("../../services/alfa.service");
+const {
+  createMockRequest,
+  createMockResponse,
+} = require("../helpers/mockFactory");
 
 // Mock do serviço
-jest.mock('../../services/alfa.service');
+jest.mock("../../services/alfa.service");
 
-describe('Alfa Controller', () => {
+describe("Alfa Controller", () => {
   let req, res;
 
   beforeEach(() => {
@@ -19,15 +22,15 @@ describe('Alfa Controller', () => {
     jest.clearAllMocks();
   });
 
-  describe('getDadosAlfa', () => {
-    it('deve retornar dados da Alfa com sucesso', async () => {
-      const dataEspecifica = '2024-01-15';
+  describe("getDadosAlfa", () => {
+    it("deve retornar dados da Alfa com sucesso", async () => {
+      const dataEspecifica = "2024-01-15";
       const mockDados = {
-        docNum: '12345',
-        cardName: 'Cliente Teste',
+        docNum: "12345",
+        cardName: "Cliente Teste",
         rastreamento: {
-          codigo: 'ABC123',
-          status: 'Em trânsito',
+          codigo: "ABC123",
+          status: "Em trânsito",
         },
       };
 
@@ -41,8 +44,8 @@ describe('Alfa Controller', () => {
       expect(res.json).toHaveBeenCalledWith(mockDados);
     });
 
-    it('deve retornar erro 400 quando formato de data é inválido', async () => {
-      const dataInvalida = '15-01-2024';
+    it("deve retornar erro 400 quando formato de data é inválido", async () => {
+      const dataInvalida = "15-01-2024";
 
       req.params = { data: dataInvalida };
 
@@ -51,13 +54,13 @@ describe('Alfa Controller', () => {
       expect(alfaService.getDadosAlfa).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
-        status: 'error',
-        message: 'Formato de data inválido. Use o formato YYYY-MM-DD',
+        status: "error",
+        message: "Formato de data inválido. Use o formato YYYY-MM-DD",
       });
     });
 
-    it('deve retornar erro 400 para formato de data inválido (formato curto)', async () => {
-      const dataInvalida = '2024/01/15';
+    it("deve retornar erro 400 para formato de data inválido (formato curto)", async () => {
+      const dataInvalida = "2024/01/15";
 
       req.params = { data: dataInvalida };
 
@@ -65,14 +68,14 @@ describe('Alfa Controller', () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
-        status: 'error',
-        message: 'Formato de data inválido. Use o formato YYYY-MM-DD',
+        status: "error",
+        message: "Formato de data inválido. Use o formato YYYY-MM-DD",
       });
     });
 
-    it('deve retornar erro 500 quando ocorre falha no serviço', async () => {
-      const dataEspecifica = '2024-01-15';
-      const errorMessage = 'Erro ao buscar dados';
+    it("deve retornar erro 500 quando ocorre falha no serviço", async () => {
+      const dataEspecifica = "2024-01-15";
+      const errorMessage = "Erro ao buscar dados";
 
       req.params = { data: dataEspecifica };
       alfaService.getDadosAlfa.mockRejectedValue(new Error(errorMessage));
@@ -81,18 +84,18 @@ describe('Alfa Controller', () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({
-        status: 'error',
-        message: 'Erro ao buscar dados',
+        status: "error",
+        message: "Erro ao buscar dados",
         error: errorMessage,
       });
     });
 
-    it('deve validar formato de data corretamente (YYYY-MM-DD)', async () => {
-      const dataValida = '2024-12-31';
+    it("deve validar formato de data corretamente (YYYY-MM-DD)", async () => {
+      const dataValida = "2024-12-31";
 
       req.params = { data: dataValida };
       alfaService.getDadosAlfa.mockResolvedValue({
-        status: 'success',
+        status: "success",
         data: [],
       });
 
@@ -103,4 +106,3 @@ describe('Alfa Controller', () => {
     });
   });
 });
-

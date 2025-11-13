@@ -1,16 +1,19 @@
 // Mock do database.config antes de importar qualquer coisa
-jest.mock('../../config/database.config', () => {
+jest.mock("../../config/database.config", () => {
   return {};
 });
 
-const frotaController = require('../../controllers/frota.controller');
-const frotaService = require('../../services/frota.service');
-const { createMockRequest, createMockResponse } = require('../helpers/mockFactory');
+const frotaController = require("../../controllers/frota.controller");
+const frotaService = require("../../services/frota.service");
+const {
+  createMockRequest,
+  createMockResponse,
+} = require("../helpers/mockFactory");
 
 // Mock do serviço
-jest.mock('../../services/frota.service');
+jest.mock("../../services/frota.service");
 
-describe('Frota Controller', () => {
+describe("Frota Controller", () => {
   let req, res;
 
   beforeEach(() => {
@@ -19,11 +22,11 @@ describe('Frota Controller', () => {
     jest.clearAllMocks();
   });
 
-  describe('getFrota', () => {
-    it('deve retornar dados da frota com sucesso', async () => {
+  describe("getFrota", () => {
+    it("deve retornar dados da frota com sucesso", async () => {
       const mockFrota = [
-        { id: 1, placa: 'ABC1234', modelo: 'Scania' },
-        { id: 2, placa: 'XYZ5678', modelo: 'Volvo' },
+        { id: 1, placa: "ABC1234", modelo: "Scania" },
+        { id: 2, placa: "XYZ5678", modelo: "Volvo" },
       ];
 
       frotaService.getFrota.mockResolvedValue(mockFrota);
@@ -35,8 +38,8 @@ describe('Frota Controller', () => {
       expect(res.json).toHaveBeenCalledWith(mockFrota);
     });
 
-    it('deve retornar erro 500 quando ocorre falha', async () => {
-      const errorMessage = 'Erro ao buscar frota';
+    it("deve retornar erro 500 quando ocorre falha", async () => {
+      const errorMessage = "Erro ao buscar frota";
       frotaService.getFrota.mockRejectedValue(new Error(errorMessage));
 
       await frotaController.getFrota(req, res);
@@ -46,14 +49,14 @@ describe('Frota Controller', () => {
     });
   });
 
-  describe('getManutencoes', () => {
-    it('deve retornar dados de manutenções com sucesso', async () => {
+  describe("getManutencoes", () => {
+    it("deve retornar dados de manutenções com sucesso", async () => {
       const mockManutencoes = [
         {
           id: 1,
-          veiculo: 'ABC1234',
-          tipo: 'Preventiva',
-          data: '2024-01-15',
+          veiculo: "ABC1234",
+          tipo: "Preventiva",
+          data: "2024-01-15",
         },
       ];
 
@@ -66,8 +69,8 @@ describe('Frota Controller', () => {
       expect(res.json).toHaveBeenCalledWith(mockManutencoes);
     });
 
-    it('deve retornar erro 500 quando ocorre falha', async () => {
-      const errorMessage = 'Erro ao buscar manutenções';
+    it("deve retornar erro 500 quando ocorre falha", async () => {
+      const errorMessage = "Erro ao buscar manutenções";
       frotaService.getManutencoes.mockRejectedValue(new Error(errorMessage));
 
       await frotaController.getManutencoes(req, res);
@@ -77,4 +80,3 @@ describe('Frota Controller', () => {
     });
   });
 });
-

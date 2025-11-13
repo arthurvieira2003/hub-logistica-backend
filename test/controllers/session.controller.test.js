@@ -1,14 +1,14 @@
 // Mock do database.config antes de importar qualquer coisa
-jest.mock('../../config/database.config', () => {
+jest.mock("../../config/database.config", () => {
   return {};
 });
 
 // Mock dos modelos antes de importar os controllers
-jest.mock('../../models/user.model', () => {
+jest.mock("../../models/user.model", () => {
   return {};
 });
 
-jest.mock('../../models/session.model', () => {
+jest.mock("../../models/session.model", () => {
   return {
     create: jest.fn(),
     findOne: jest.fn(),
@@ -18,14 +18,17 @@ jest.mock('../../models/session.model', () => {
   };
 });
 
-const sessionController = require('../../controllers/session.controller');
-const sessionService = require('../../services/session.service');
-const { createMockRequest, createMockResponse } = require('../helpers/mockFactory');
+const sessionController = require("../../controllers/session.controller");
+const sessionService = require("../../services/session.service");
+const {
+  createMockRequest,
+  createMockResponse,
+} = require("../helpers/mockFactory");
 
 // Mock do serviço
-jest.mock('../../services/session.service');
+jest.mock("../../services/session.service");
 
-describe('Session Controller', () => {
+describe("Session Controller", () => {
   let req, res;
 
   beforeEach(() => {
@@ -34,13 +37,13 @@ describe('Session Controller', () => {
     jest.clearAllMocks();
   });
 
-  describe('validateToken', () => {
-    it('deve validar um token válido e retornar dados do usuário', async () => {
-      const mockToken = 'valid-jwt-token';
+  describe("validateToken", () => {
+    it("deve validar um token válido e retornar dados do usuário", async () => {
+      const mockToken = "valid-jwt-token";
       const mockUser = {
         id: 1,
-        name: 'Test User',
-        email: 'test@example.com',
+        name: "Test User",
+        email: "test@example.com",
       };
 
       req.headers.authorization = mockToken;
@@ -51,14 +54,16 @@ describe('Session Controller', () => {
       await sessionController.validateToken(req, res);
 
       expect(sessionService.validateToken).toHaveBeenCalledWith(mockToken);
-      expect(sessionService.updateSessionActivity).toHaveBeenCalledWith(mockToken);
+      expect(sessionService.updateSessionActivity).toHaveBeenCalledWith(
+        mockToken
+      );
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(mockUser);
     });
 
-    it('deve retornar erro 401 quando token é inválido', async () => {
-      const mockToken = 'invalid-jwt-token';
-      const errorMessage = 'Token inválido ou expirado';
+    it("deve retornar erro 401 quando token é inválido", async () => {
+      const mockToken = "invalid-jwt-token";
+      const errorMessage = "Token inválido ou expirado";
 
       req.headers.authorization = mockToken;
 
@@ -73,29 +78,29 @@ describe('Session Controller', () => {
     });
   });
 
-  describe('getActiveSessions', () => {
-    it('deve retornar todas as sessões ativas', async () => {
+  describe("getActiveSessions", () => {
+    it("deve retornar todas as sessões ativas", async () => {
       const mockSessions = [
         {
           id: 1,
           userId: 1,
-          token: 'token1',
+          token: "token1",
           isActive: true,
           User: {
             id: 1,
-            name: 'User 1',
-            email: 'user1@example.com',
+            name: "User 1",
+            email: "user1@example.com",
           },
         },
         {
           id: 2,
           userId: 2,
-          token: 'token2',
+          token: "token2",
           isActive: true,
           User: {
             id: 2,
-            name: 'User 2',
-            email: 'user2@example.com',
+            name: "User 2",
+            email: "user2@example.com",
           },
         },
       ];
@@ -111,11 +116,13 @@ describe('Session Controller', () => {
       expect(res.json).toHaveBeenCalledWith(mockSessions);
     });
 
-    it('deve retornar erro 500 quando ocorre falha', async () => {
-      const errorMessage = 'Erro ao buscar sessões';
+    it("deve retornar erro 500 quando ocorre falha", async () => {
+      const errorMessage = "Erro ao buscar sessões";
 
       sessionService.cleanupExpiredSessions.mockResolvedValue();
-      sessionService.getActiveSessions.mockRejectedValue(new Error(errorMessage));
+      sessionService.getActiveSessions.mockRejectedValue(
+        new Error(errorMessage)
+      );
 
       await sessionController.getActiveSessions(req, res);
 
@@ -124,20 +131,20 @@ describe('Session Controller', () => {
     });
   });
 
-  describe('getUserSessions', () => {
-    it('deve retornar todas as sessões de um usuário', async () => {
-      const userId = '1';
+  describe("getUserSessions", () => {
+    it("deve retornar todas as sessões de um usuário", async () => {
+      const userId = "1";
       const mockSessions = [
         {
           id: 1,
           userId: 1,
-          token: 'token1',
+          token: "token1",
           isActive: true,
         },
         {
           id: 2,
           userId: 1,
-          token: 'token2',
+          token: "token2",
           isActive: true,
         },
       ];
@@ -153,9 +160,9 @@ describe('Session Controller', () => {
       expect(res.json).toHaveBeenCalledWith(mockSessions);
     });
 
-    it('deve retornar erro 500 quando ocorre falha', async () => {
-      const userId = '1';
-      const errorMessage = 'Erro ao buscar sessões do usuário';
+    it("deve retornar erro 500 quando ocorre falha", async () => {
+      const userId = "1";
+      const errorMessage = "Erro ao buscar sessões do usuário";
 
       req.params = { userId };
 
@@ -168,9 +175,9 @@ describe('Session Controller', () => {
     });
   });
 
-  describe('logoutSession', () => {
-    it('deve desativar uma sessão com sucesso', async () => {
-      const mockToken = 'jwt-token';
+  describe("logoutSession", () => {
+    it("deve desativar uma sessão com sucesso", async () => {
+      const mockToken = "jwt-token";
 
       req.headers.authorization = mockToken;
 
@@ -181,17 +188,19 @@ describe('Session Controller', () => {
       expect(sessionService.deactivateSession).toHaveBeenCalledWith(mockToken);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        message: 'Sessão encerrada com sucesso',
+        message: "Sessão encerrada com sucesso",
       });
     });
 
-    it('deve retornar erro 500 quando ocorre falha', async () => {
-      const mockToken = 'jwt-token';
-      const errorMessage = 'Erro ao desativar sessão';
+    it("deve retornar erro 500 quando ocorre falha", async () => {
+      const mockToken = "jwt-token";
+      const errorMessage = "Erro ao desativar sessão";
 
       req.headers.authorization = mockToken;
 
-      sessionService.deactivateSession.mockRejectedValue(new Error(errorMessage));
+      sessionService.deactivateSession.mockRejectedValue(
+        new Error(errorMessage)
+      );
 
       await sessionController.logoutSession(req, res);
 
@@ -200,9 +209,9 @@ describe('Session Controller', () => {
     });
   });
 
-  describe('terminateSession', () => {
-    it('deve terminar uma sessão com sucesso', async () => {
-      const sessionId = '1';
+  describe("terminateSession", () => {
+    it("deve terminar uma sessão com sucesso", async () => {
+      const sessionId = "1";
       const mockSession = {
         id: 1,
         userId: 1,
@@ -218,7 +227,7 @@ describe('Session Controller', () => {
       expect(sessionService.terminateSession).toHaveBeenCalledWith(sessionId);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith({
-        message: 'Sessão terminada com sucesso',
+        message: "Sessão terminada com sucesso",
         session: {
           id: mockSession.id,
           userId: mockSession.userId,
@@ -227,13 +236,15 @@ describe('Session Controller', () => {
       });
     });
 
-    it('deve retornar erro 500 quando ocorre falha', async () => {
-      const sessionId = '1';
-      const errorMessage = 'Sessão não encontrada';
+    it("deve retornar erro 500 quando ocorre falha", async () => {
+      const sessionId = "1";
+      const errorMessage = "Sessão não encontrada";
 
       req.params = { id: sessionId };
 
-      sessionService.terminateSession.mockRejectedValue(new Error(errorMessage));
+      sessionService.terminateSession.mockRejectedValue(
+        new Error(errorMessage)
+      );
 
       await sessionController.terminateSession(req, res);
 
@@ -242,4 +253,3 @@ describe('Session Controller', () => {
     });
   });
 });
-
