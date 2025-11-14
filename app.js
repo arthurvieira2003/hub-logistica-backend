@@ -19,6 +19,7 @@ const {
 const {
   logStartup,
   setupGracefulShutdown,
+  testLokiConnection,
 } = require("./utils/startup.handler");
 
 // Configurar handlers de erro globais
@@ -63,6 +64,26 @@ sequelize
 const PORT = process.env.PORT || 4010;
 const server = app.listen(PORT, () => {
   logStartup(PORT);
+
+  // Executar testes de diagnóstico do Loki em background (não bloqueia o startup)
+  // Qualquer erro é ignorado para não afetar o funcionamento do backend
+  if (process.env.SKIP_LOKI_DIAGNOSTICS !== "true") {
+    // Executar em background sem bloquear
+    setImmediate(() => {
+      setTimeout(async () => {
+        try {
+          await testLokiConnection();
+        } catch (error) {
+          // Erro silencioso - não afeta o funcionamento do backend
+          // Apenas loga localmente sem enviar para o Loki (para evitar loop)
+          console.error("[Diagnóstico Loki] Erro ignorado:", error.message);
+        }
+      }, 1000);
+    });
+  } else {
+    const logger = getLogger();
+    logger.info("Diagnóstico do Loki pulado (SKIP_LOKI_DIAGNOSTICS=true)");
+  }
 });
 
 // Configurar graceful shutdown

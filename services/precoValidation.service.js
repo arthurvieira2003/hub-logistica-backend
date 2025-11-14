@@ -910,9 +910,11 @@ const validarPrecoCTE = async (cteData) => {
     };
   } catch (error) {
     console.error("Erro ao validar preço do CT-e:", error);
+    console.error("Stack trace:", error.stack);
+    console.error("CT-e data recebido:", JSON.stringify(cteData, null, 2));
     return {
       valido: false,
-      motivo: "Erro ao validar",
+      motivo: `Erro ao validar: ${error.message}`,
       precoTabela: null,
       precoCTE: parseFloat(
         cteData?.valores?.valorTotal || cteData?.valores?.valorServico || 0

@@ -43,23 +43,72 @@ const getCTEBySerial = async (req, res) => {
     const cte = await cteService.getCTEBySerial(serial);
     res.json(cte);
   } catch (error) {
-    res.status(404).json({ message: "CT-E não encontrado", error: error.message });
+    res
+      .status(404)
+      .json({ message: "CT-E não encontrado", error: error.message });
   }
 };
 
 const validarPrecoCTE = async (req, res) => {
   try {
     const { serial } = req.params;
-    const cte = await cteService.getCTEBySerial(serial);
-    
+
+    // Buscar CT-e
+    let cte;
+    try {
+      cte = await cteService.getCTEBySerial(serial);
+    } catch (error) {
+      if (error.message.includes("não encontrado")) {
+        return res.status(404).json({
+          valido: false,
+          motivo: "CT-e não encontrado",
+          precoTabela: null,
+          precoCTE: null,
+          diferenca: null,
+          percentualDiferenca: null,
+        });
+      }
+      if (
+        error.message.includes("NF-e") ||
+        error.message.includes("não um CT-e")
+      ) {
+        return res.status(400).json({
+          valido: false,
+          motivo: "Documento não é um CT-e",
+          precoTabela: null,
+          precoCTE: null,
+          diferenca: null,
+          percentualDiferenca: null,
+        });
+      }
+      throw error;
+    }
+
+    if (!cte) {
+      return res.status(404).json({
+        valido: false,
+        motivo: "CT-e não encontrado",
+        precoTabela: null,
+        precoCTE: null,
+        diferenca: null,
+        percentualDiferenca: null,
+      });
+    }
+
     const precoValidationService = require("../services/precoValidation.service");
     const validacao = await precoValidationService.validarPrecoCTE(cte);
-    
+
     res.json(validacao);
   } catch (error) {
-    res.status(500).json({ 
-      message: "Erro ao validar preço do CT-e", 
-      error: error.message 
+    console.error("Erro ao validar preço do CT-e:", error);
+    res.status(500).json({
+      valido: false,
+      motivo: "Erro ao validar preço",
+      precoTabela: null,
+      precoCTE: null,
+      diferenca: null,
+      percentualDiferenca: null,
+      error: error.message,
     });
   }
 };

@@ -197,7 +197,7 @@ class LokiLogger {
           headers: {
             "Content-Type": "application/json",
           },
-          timeout: 20000, // 20 segundos para dar tempo do ingester ficar pronto e lidar com latência de rede
+          timeout: 30000, // 30 segundos para dar tempo do ingester ficar pronto e lidar com latência de rede
           validateStatus: (status) => {
             // Aceitar 200, 204 e 503 (503 significa que o ingester ainda não está pronto, mas pode aceitar logs)
             return status === 200 || status === 204 || status === 503;
