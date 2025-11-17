@@ -1,6 +1,5 @@
 const sessionService = require("../services/session.service");
 
-// Middleware para garantir que a sessão seja carregada antes de qualquer operação
 const ensureSessionLoaded = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.replace("Bearer ", "");
@@ -12,13 +11,10 @@ const ensureSessionLoaded = async (req, res, next) => {
       });
     }
 
-    // Validar token
     const userData = sessionService.validateToken(token);
 
-    // Atualizar atividade da sessão
     await sessionService.updateSessionActivity(token);
 
-    // Adicionar dados do usuário ao request
     req.user = userData;
 
     next();
@@ -31,9 +27,7 @@ const ensureSessionLoaded = async (req, res, next) => {
   }
 };
 
-// Middleware para aguardar carregamento completo da sessão
 const waitForSession = (req, res, next) => {
-  // Verificar se os dados essenciais estão presentes
   if (!req.user || !req.user.id) {
     return res.status(401).json({
       status: "error",

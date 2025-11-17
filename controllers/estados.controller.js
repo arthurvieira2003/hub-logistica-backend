@@ -66,4 +66,3 @@ module.exports = {
   deleteEstado,
   countRelatedRecords,
 };
-

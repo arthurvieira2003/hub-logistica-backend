@@ -1,8 +1,8 @@
 const cteService = require("../services/cte.service");
+const precoValidationService = require("../services/precoValidation.service");
 
 const getCTEs = async (req, res) => {
   try {
-    // Obter parâmetro de data (formato YYYY-MM-DD) ou usar data atual
     const dataFiltro = req.query.data || null;
     const ctes = await cteService.getCTEs(dataFiltro);
     res.json(ctes);
@@ -53,7 +53,6 @@ const validarPrecoCTE = async (req, res) => {
   try {
     const { serial } = req.params;
 
-    // Buscar CT-e
     let cte;
     try {
       cte = await cteService.getCTEBySerial(serial);
@@ -70,7 +69,9 @@ const validarPrecoCTE = async (req, res) => {
       }
       if (
         error.message.includes("NF-e") ||
-        error.message.includes("não um CT-e")
+        error.message.includes("não um CT-e") ||
+        error.message.includes("não é um CT-e") ||
+        error.message.includes("Estrutura XML não reconhecida")
       ) {
         return res.status(400).json({
           valido: false,
@@ -95,12 +96,10 @@ const validarPrecoCTE = async (req, res) => {
       });
     }
 
-    const precoValidationService = require("../services/precoValidation.service");
     const validacao = await precoValidationService.validarPrecoCTE(cte);
 
     res.json(validacao);
   } catch (error) {
-    console.error("Erro ao validar preço do CT-e:", error);
     res.status(500).json({
       valido: false,
       motivo: "Erro ao validar preço",

@@ -1,11 +1,9 @@
-// Mock do database.config antes de importar qualquer coisa
 jest.mock("../../config/database.config", () => {
   return {
     define: jest.fn(),
   };
 });
 
-// Mock do session.model antes de importar o middleware
 jest.mock("../../models/session.model", () => {
   return {};
 });
@@ -17,7 +15,6 @@ const {
   createMockResponse,
 } = require("../helpers/mockFactory");
 
-// Mock do serviço
 jest.mock("../../services/session.service");
 
 describe("Session Middleware", () => {

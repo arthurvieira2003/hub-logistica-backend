@@ -35,7 +35,6 @@ const Cidades = sequelize.define(
   }
 );
 
-// Estabelecendo relacionamento com o estado
 Cidades.belongsTo(Estados, { foreignKey: "id_estado" });
 Estados.hasMany(Cidades, { foreignKey: "id_estado" });
 

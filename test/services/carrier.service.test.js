@@ -1,7 +1,6 @@
 const carrierService = require("../../services/carrier.service");
 const axios = require("axios");
 
-// Mock dos módulos
 jest.mock("axios");
 
 require("dotenv").config();

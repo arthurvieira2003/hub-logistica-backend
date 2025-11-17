@@ -1,9 +1,7 @@
-// Mock do database.config antes de importar qualquer coisa
 jest.mock("../../config/database.config", () => {
   return {};
 });
 
-// Mock dos modelos antes de importar os controllers
 jest.mock("../../models/user.model", () => {
   return {
     findByPk: jest.fn(),
@@ -24,7 +22,6 @@ const {
   createMockResponse,
 } = require("../helpers/mockFactory");
 
-// Mock do serviço
 jest.mock("../../services/user.service");
 
 describe("User Controller", () => {
@@ -94,8 +91,6 @@ describe("User Controller", () => {
 
       await userController.updatePassword(req, res);
 
-      // O controller passa id, mas o serviço espera email
-      // Isso reflete o comportamento atual do código
       expect(userService.updatePassword).toHaveBeenCalledWith(1, "newPassword");
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(mockUser);
@@ -134,8 +129,6 @@ describe("User Controller", () => {
 
       await userController.changeStatus(req, res);
 
-      // O controller passa id, mas o serviço espera email
-      // Isso reflete o comportamento atual do código
       expect(userService.changeStatus).toHaveBeenCalledWith(1, "inactive");
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(mockUser);

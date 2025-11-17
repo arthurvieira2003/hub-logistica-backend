@@ -1,9 +1,7 @@
-// Mock do database.config antes de importar qualquer coisa
 jest.mock("../../config/database.config", () => {
   return {};
 });
 
-// Mock dos modelos antes de importar os controllers
 jest.mock("../../models/user.model", () => {
   return {};
 });
@@ -25,7 +23,6 @@ const {
   createMockResponse,
 } = require("../helpers/mockFactory");
 
-// Mock do serviço
 jest.mock("../../services/session.service");
 
 describe("Session Controller", () => {

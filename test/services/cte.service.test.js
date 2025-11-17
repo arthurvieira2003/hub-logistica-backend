@@ -3,7 +3,6 @@ const axios = require("axios");
 const zlib = require("zlib");
 const xml2js = require("xml2js");
 
-// Mock dos módulos
 jest.mock("axios");
 jest.mock("zlib");
 jest.mock("xml2js");

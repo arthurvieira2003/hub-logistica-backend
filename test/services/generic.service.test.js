@@ -3,14 +3,12 @@ const nfService = require("../../services/nf.service");
 const carrierService = require("../../services/carrier.service");
 const axios = require("axios");
 
-// Mock dos módulos
 jest.mock("../../services/nf.service");
 jest.mock("../../services/carrier.service");
 jest.mock("axios");
 
 require("dotenv").config();
 
-// Mock do setTimeout para controlar delays nos testes
 jest.useFakeTimers();
 
 describe("Generic Service", () => {
@@ -183,7 +181,6 @@ describe("Generic Service", () => {
 
       const result = await genericService.getDadosGeneric(dataEspecifica);
 
-      // Quando há apenas uma nota, retorna objeto único
       expect(result).toHaveProperty("status", "error");
       expect(result).toHaveProperty("rastreamento", null);
       expect(result).toHaveProperty("errorMessage");

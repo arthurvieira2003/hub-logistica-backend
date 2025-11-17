@@ -61,12 +61,17 @@ const countRelatedRecords = async (req, res) => {
 const buscarCodigoIBGE = async (req, res) => {
   try {
     const { nome, uf } = req.query;
-    
+
     if (!nome || !uf) {
-      return res.status(400).json({ error: "Nome da cidade e UF são obrigatórios" });
+      return res
+        .status(400)
+        .json({ error: "Nome da cidade e UF são obrigatórios" });
     }
 
-    const result = await cidadesService.buscarCodigoIBGE(nome, uf.toUpperCase());
+    const result = await cidadesService.buscarCodigoIBGE(
+      nome,
+      uf.toUpperCase()
+    );
     res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -82,4 +87,3 @@ module.exports = {
   countRelatedRecords,
   buscarCodigoIBGE,
 };
-

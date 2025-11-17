@@ -1,4 +1,3 @@
-// Configuração do CORS para múltiplas origens
 const allowedOrigins = [
   "http://localhost:3060",
   "http://127.0.0.1:3060",
@@ -7,7 +6,6 @@ const allowedOrigins = [
 
 const corsOptions = {
   origin: function (origin, callback) {
-    // Permitir requisições sem origem (como apps mobile ou curl)
     if (!origin) return callback(null, true);
 
     if (allowedOrigins.indexOf(origin) !== -1) {

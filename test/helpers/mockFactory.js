@@ -1,5 +1,3 @@
-// Factory para criar mocks de objetos comuns nos testes
-
 const createMockUser = (overrides = {}) => ({
   id: 1,
   name: "Test User",
@@ -15,7 +13,7 @@ const createMockSession = (overrides = {}) => ({
   id: 1,
   userId: 1,
   token: "mock-jwt-token",
-  expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 horas
+  expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
   lastActivity: new Date(),
   ipAddress: "127.0.0.1",
   userAgent: "test-agent",

@@ -1,7 +1,3 @@
-const express = require("express");
-const router = express.Router();
-
-// Importando todas as rotas
 const userRoutes = require("./user.routes");
 const sessionRoutes = require("./session.routes");
 const ouroNegroRoutes = require("./ouroNegro.route");
@@ -16,7 +12,6 @@ const faixasPesoRoutes = require("./faixasPeso.routes");
 const rotasRoutes = require("./rotas.routes");
 const precosFaixasRoutes = require("./precosFaixas.routes");
 
-// Função para registrar todas as rotas no app
 const registerRoutes = (app) => {
   app.use("/user", userRoutes);
   app.use("/session", sessionRoutes);
@@ -34,4 +29,3 @@ const registerRoutes = (app) => {
 };
 
 module.exports = registerRoutes;
-

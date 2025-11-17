@@ -4,7 +4,6 @@ const xml2js = require("xml2js");
 
 const nfService = require("./nf.service");
 
-// Função auxiliar para converter XML para JSON
 const xmlToJson = async (xmlData) => {
   return new Promise((resolve, reject) => {
     const parser = new xml2js.Parser({
@@ -23,21 +22,18 @@ const xmlToJson = async (xmlData) => {
 
 const getDadosAlfa = async (dataEspecifica) => {
   try {
-    // Validar formato da data
     const regexData = /^\d{4}-\d{2}-\d{2}$/;
     if (!regexData.test(dataEspecifica)) {
       throw new Error("Formato de data inválido. Use o formato YYYY-MM-DD");
     }
 
-    // Buscar notas para a data específica
     const notas = await nfService.getNotas(
       "alfa",
-      1, // dias não é usado quando dataInicio e dataFim são fornecidos
+      1,
       dataEspecifica,
       dataEspecifica
     );
 
-    // Verificar se há notas para a data especificada
     if (!notas || notas.length === 0) {
       return {
         status: "success",
@@ -58,10 +54,8 @@ const getDadosAlfa = async (dataEspecifica) => {
 
       const apiResponse = await axios.post(process.env.ALFA_URL, body);
 
-      // Converter XML para JSON
       let responseJson = apiResponse.data;
 
-      // Verificar se a resposta é XML
       if (
         typeof apiResponse.data === "string" &&
         apiResponse.data.trim().startsWith("<?xml")
@@ -73,7 +67,6 @@ const getDadosAlfa = async (dataEspecifica) => {
         }
       }
 
-      // Criar objeto de resposta com os dados da nota e os dados da Alfa
       resultados.push({
         docNum: item.DocNum,
         docEntry: item.DocEntry,

@@ -82,14 +82,12 @@ const deleteCidade = async (id) => {
 
 const countRelatedRecords = async (id) => {
   try {
-    // Contar rotas que usam essa cidade como origem ou destino
     const rotasCount = await Rotas.count({
       where: {
         [Op.or]: [{ id_cidade_origem: id }, { id_cidade_destino: id }],
       },
     });
 
-    // Buscar todas as rotas para contar preços
     const rotas = await Rotas.findAll({
       where: {
         [Op.or]: [{ id_cidade_origem: id }, { id_cidade_destino: id }],
@@ -98,7 +96,6 @@ const countRelatedRecords = async (id) => {
     });
     const rotaIds = rotas.map((r) => r.id_rota);
 
-    // Contar preços de faixas dessas rotas
     let precosCount = 0;
     if (rotaIds.length > 0) {
       precosCount = await PrecosFaixas.count({
@@ -134,7 +131,6 @@ const buscarCodigoIBGE = async (nomeCidade, uf) => {
             try {
               const municipios = JSON.parse(data);
 
-              // Normalizar nome da cidade para busca
               const normalizarNome = (nome) => {
                 return nome
                   .toLowerCase()
@@ -145,7 +141,6 @@ const buscarCodigoIBGE = async (nomeCidade, uf) => {
 
               const nomeNormalizado = normalizarNome(nomeCidade);
 
-              // Buscar município que corresponde ao nome
               const municipio = municipios.find((m) => {
                 const nomeMunicipio = normalizarNome(m.nome);
                 return (
@@ -158,10 +153,8 @@ const buscarCodigoIBGE = async (nomeCidade, uf) => {
               if (municipio && municipio.id) {
                 resolve({ codigo_ibge: municipio.id });
               } else {
-                // Se não encontrou exato, tentar busca mais flexível
                 const municipioFlexivel = municipios.find((m) => {
                   const nomeMunicipio = normalizarNome(m.nome);
-                  // Remover palavras comuns e comparar
                   const limparNome = (n) => {
                     return n
                       .replace(/\b(de|da|do|das|dos|e|em|na|no|nas|nos)\b/g, "")

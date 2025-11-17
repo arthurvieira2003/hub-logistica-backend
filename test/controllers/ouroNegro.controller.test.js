@@ -1,11 +1,9 @@
-// Mock do database.config antes de importar qualquer coisa
 jest.mock("../../config/database.config", () => {
   return {
     define: jest.fn(),
   };
 });
 
-// Mock do tracking.model antes de importar o controller
 jest.mock("../../models/tracking.model", () => {
   return {};
 });
@@ -17,7 +15,6 @@ const {
   createMockResponse,
 } = require("../helpers/mockFactory");
 
-// Mock do serviço
 jest.mock("../../services/ouroNegro.service");
 
 describe("Ouro Negro Controller", () => {

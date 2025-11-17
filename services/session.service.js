@@ -33,7 +33,6 @@ const validateToken = (token) => {
 
 const createSession = async (userId, token, req) => {
   try {
-    // Calcular a data de expiração (24 horas a partir de agora)
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
@@ -145,7 +144,6 @@ const terminateSession = async (sessionId) => {
 
 const cleanupExpiredSessions = async () => {
   try {
-    // Marcar como inativas as sessões expiradas
     await Session.update(
       { isActive: false },
       {

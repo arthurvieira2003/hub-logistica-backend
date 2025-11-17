@@ -1,11 +1,9 @@
-// Mock do database.config antes de importar qualquer coisa
 jest.mock("../../config/database.config", () => {
   return {
     define: jest.fn(),
   };
 });
 
-// Mock do tracking.model antes de importar o serviço
 jest.mock("../../models/tracking.model", () => {
   return {
     findOne: jest.fn(),
@@ -18,7 +16,6 @@ const nfService = require("../../services/nf.service");
 const Tracking = require("../../models/tracking.model");
 const axios = require("axios");
 
-// Mock dos módulos
 jest.mock("../../services/nf.service");
 jest.mock("axios");
 
@@ -94,7 +91,6 @@ describe("Princesa Service", () => {
 
       expect(Tracking.findOne).toHaveBeenCalled();
       expect(axios.get).toHaveBeenCalled();
-      // Quando há apenas uma nota, retorna objeto único
       expect(Array.isArray(result)).toBe(false);
       expect(result).toHaveProperty("rastreamento", mockRastreamento);
       expect(result).toHaveProperty("cacheStatus", "updated");
@@ -136,7 +132,6 @@ describe("Princesa Service", () => {
 
       expect(Tracking.findOne).toHaveBeenCalled();
       expect(axios.get).not.toHaveBeenCalled();
-      // Quando há apenas uma nota, retorna objeto único
       expect(Array.isArray(result)).toBe(false);
       expect(result).toHaveProperty("rastreamento", mockRastreamento);
       expect(result).toHaveProperty("cacheStatus", "cached");
@@ -180,7 +175,6 @@ describe("Princesa Service", () => {
 
       expect(axios.get).toHaveBeenCalled();
       expect(mockTracking.save).toHaveBeenCalled();
-      // Quando há apenas uma nota, retorna objeto único
       expect(Array.isArray(result)).toBe(false);
       expect(result).toHaveProperty("cacheStatus", "updated");
     });
@@ -260,7 +254,6 @@ describe("Princesa Service", () => {
 
       const result = await princesaService.getDadosPrincesa({});
 
-      // Quando há apenas uma nota com erro, retorna objeto único
       expect(result).toHaveProperty("status", "error");
       expect(result).toHaveProperty("rastreamento", null);
       expect(result).toHaveProperty("errorMessage");

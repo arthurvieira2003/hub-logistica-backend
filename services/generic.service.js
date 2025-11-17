@@ -4,7 +4,6 @@ require("dotenv").config();
 const nfService = require("./nf.service");
 const carrierService = require("./carrier.service");
 
-// Função auxiliar para fazer requisição com retry
 const fetchWithRetry = async (url, data, maxRetries = 3, timeout = 10000) => {
   let lastError;
 
@@ -22,7 +21,6 @@ const fetchWithRetry = async (url, data, maxRetries = 3, timeout = 10000) => {
     } catch (error) {
       lastError = error;
 
-      // Se não for o último retry, aguarde antes de tentar novamente
       if (attempt < maxRetries - 1) {
         const delay = Math.pow(2, attempt) * 1000;
         await new Promise((resolve) => setTimeout(resolve, delay));
@@ -33,7 +31,6 @@ const fetchWithRetry = async (url, data, maxRetries = 3, timeout = 10000) => {
   throw lastError;
 };
 
-// Função para obter dados de rastreamento da SSW
 const obterDadosRastreamentoSSW = async (nota) => {
   try {
     const body = {
@@ -87,21 +84,18 @@ const obterDadosRastreamentoSSW = async (nota) => {
 
 const getDadosGeneric = async (dataEspecifica) => {
   try {
-    // Validar formato da data
     const regexData = /^\d{4}-\d{2}-\d{2}$/;
     if (!regexData.test(dataEspecifica)) {
       throw new Error("Formato de data inválido. Use o formato YYYY-MM-DD");
     }
 
-    // Buscar notas para a data específica (excluindo Alfa e Ouro Negro)
     const notas = await nfService.getNotas(
-      "", // carrier vazio para buscar todas
-      1, // dias não é usado quando dataInicio e dataFim são fornecidos
+      "",
+      1,
       dataEspecifica,
       dataEspecifica
     );
 
-    // Verificar se há notas para a data especificada
     if (!notas || notas.length === 0) {
       return {
         status: "success",
@@ -111,27 +105,22 @@ const getDadosGeneric = async (dataEspecifica) => {
       };
     }
 
-    // Buscar transportadoras internas (Copapel e afiliadas)
     const transportadorasInternas = await carrierService.getCarrier();
     const codigosInternos = transportadorasInternas
       ? transportadorasInternas.map((t) => t.CardCode)
       : [];
 
-    // Filtrar apenas notas que tenham transportadora externa
     const notasFiltradas = notas.filter((nota) => {
       const carrier = nota.Carrier;
 
-      // Verificar se o campo carrier não está vazio ou nulo
       if (!carrier || carrier.trim() === "") {
         return false;
       }
 
-      // Verificar se não é uma transportadora interna (Copapel)
       if (codigosInternos.includes(carrier)) {
         return false;
       }
 
-      // Verificar se não é Alfa nem Ouro Negro
       const carrierName = nota.CarrierName?.toLowerCase() || "";
       if (
         carrierName.includes("alfa") ||
@@ -183,7 +172,6 @@ const getDadosGeneric = async (dataEspecifica) => {
       }
     }
 
-    // Verificar se após processar todas as notas, não restou nenhuma
     if (resultados.length === 0) {
       return {
         status: "success",

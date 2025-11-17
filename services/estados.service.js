@@ -69,19 +69,16 @@ const deleteEstado = async (id) => {
 
 const countRelatedRecords = async (id) => {
   try {
-    // Contar cidades do estado
     const cidadesCount = await Cidades.count({
       where: { id_estado: id },
     });
 
-    // Buscar todas as cidades do estado para contar rotas
     const cidades = await Cidades.findAll({
       where: { id_estado: id },
       attributes: ["id_cidade"],
     });
     const cidadeIds = cidades.map((c) => c.id_cidade);
 
-    // Contar rotas que usam essas cidades como origem ou destino
     const rotasCount = await Rotas.count({
       where: {
         [Op.or]: [
@@ -91,7 +88,6 @@ const countRelatedRecords = async (id) => {
       },
     });
 
-    // Buscar todas as rotas para contar preços
     const rotas = await Rotas.findAll({
       where: {
         [Op.or]: [
@@ -103,10 +99,12 @@ const countRelatedRecords = async (id) => {
     });
     const rotaIds = rotas.map((r) => r.id_rota);
 
-    // Contar preços de faixas dessas rotas
-    const precosCount = rotaIds.length > 0 ? await PrecosFaixas.count({
-      where: { id_rota: { [Op.in]: rotaIds } },
-    }) : 0;
+    const precosCount =
+      rotaIds.length > 0
+        ? await PrecosFaixas.count({
+            where: { id_rota: { [Op.in]: rotaIds } },
+          })
+        : 0;
 
     return {
       cidades: cidadesCount,

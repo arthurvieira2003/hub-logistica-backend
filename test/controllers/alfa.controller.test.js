@@ -1,4 +1,3 @@
-// Mock do database.config antes de importar qualquer coisa
 jest.mock("../../config/database.config", () => {
   return {};
 });
@@ -10,7 +9,6 @@ const {
   createMockResponse,
 } = require("../helpers/mockFactory");
 
-// Mock do serviço
 jest.mock("../../services/alfa.service");
 
 describe("Alfa Controller", () => {

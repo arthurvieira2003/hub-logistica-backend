@@ -20,9 +20,9 @@ module.exports = {
   log: {
     level: process.env.LOG_LEVEL || "info",
     batchSize: parseInt(process.env.LOG_BATCH_SIZE || "10", 10),
-    batchInterval: parseInt(process.env.LOG_BATCH_INTERVAL || "5000", 10), // ms
+    batchInterval: parseInt(process.env.LOG_BATCH_INTERVAL || "5000", 10),
     maxRetries: parseInt(process.env.LOG_MAX_RETRIES || "3", 10),
-    retryDelay: parseInt(process.env.LOG_RETRY_DELAY || "1000", 10), // ms
+    retryDelay: parseInt(process.env.LOG_RETRY_DELAY || "1000", 10),
     circuitBreakerThreshold: parseInt(
       process.env.LOG_CIRCUIT_BREAKER_THRESHOLD || "5",
       10
@@ -30,10 +30,9 @@ module.exports = {
     circuitBreakerTimeout: parseInt(
       process.env.LOG_CIRCUIT_BREAKER_TIMEOUT || "60000",
       10
-    ), // ms
+    ),
   },
   sanitize: {
-    // Campos que devem ser sanitizados (valores serão substituídos por '***')
     sensitiveFields: [
       "password",
       "senha",

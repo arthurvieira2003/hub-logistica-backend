@@ -21,8 +21,7 @@ const getAllRotas = async () => {
       ],
       order: [["id_rota", "ASC"]],
     });
-    
-    // Buscar cidade destino separadamente para cada rota
+
     const rotasCompletas = await Promise.all(
       rotas.map(async (rota) => {
         const cidadeDestino = await Cidades.findByPk(rota.id_cidade_destino, {
@@ -35,11 +34,11 @@ const getAllRotas = async () => {
         });
         const rotaData = rota.toJSON();
         rotaData.CidadeDestino = cidadeDestino ? cidadeDestino.toJSON() : null;
-        rotaData.Cidade = rotaData.CidadeOrigem; // Para compatibilidade
+        rotaData.Cidade = rotaData.CidadeOrigem;
         return rotaData;
       })
     );
-    
+
     return rotasCompletas;
   } catch (error) {
     console.error("Erro ao buscar rotas:", error);
@@ -64,12 +63,11 @@ const getRotaById = async (id) => {
         },
       ],
     });
-    
+
     if (!rota) {
       throw new Error("Rota não encontrada");
     }
-    
-    // Buscar cidade destino separadamente
+
     const cidadeDestino = await Cidades.findByPk(rota.id_cidade_destino, {
       include: [
         {
@@ -78,11 +76,11 @@ const getRotaById = async (id) => {
         },
       ],
     });
-    
+
     const rotaData = rota.toJSON();
     rotaData.CidadeDestino = cidadeDestino ? cidadeDestino.toJSON() : null;
-    rotaData.Cidade = rotaData.CidadeOrigem; // Para compatibilidade
-    
+    rotaData.Cidade = rotaData.CidadeOrigem;
+
     return rotaData;
   } catch (error) {
     console.error("Erro ao buscar rota:", error);
@@ -92,7 +90,6 @@ const getRotaById = async (id) => {
 
 const createRota = async (data) => {
   try {
-    // Verificar se origem e destino são diferentes
     if (data.id_cidade_origem === data.id_cidade_destino) {
       throw new Error("A cidade de origem e destino não podem ser iguais");
     }
@@ -106,7 +103,6 @@ const createRota = async (data) => {
 
 const updateRota = async (id, data) => {
   try {
-    // Verificar se origem e destino são diferentes
     if (data.id_cidade_origem === data.id_cidade_destino) {
       throw new Error("A cidade de origem e destino não podem ser iguais");
     }
@@ -128,7 +124,6 @@ const deleteRota = async (id) => {
     if (!rota) {
       throw new Error("Rota não encontrada");
     }
-    // Desativar em vez de excluir (tem coluna ativa)
     rota.ativa = false;
     await rota.save();
     return { message: "Rota desativada com sucesso" };
@@ -140,10 +135,8 @@ const deleteRota = async (id) => {
 
 const countRelatedRecords = async (id) => {
   try {
-    // Contar preços de faixas ativos dessa rota
-    // Nota: Como rota será desativada (não excluída), os preços também serão desativados
     const precosCount = await PrecosFaixas.count({
-      where: { 
+      where: {
         id_rota: id,
         ativo: true, // Apenas preços ativos serão afetados
       },
@@ -166,4 +159,3 @@ module.exports = {
   deleteRota,
   countRelatedRecords,
 };
-

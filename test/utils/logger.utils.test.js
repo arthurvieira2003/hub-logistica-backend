@@ -64,7 +64,7 @@ describe("Logger Utils", () => {
     it("should return timestamp in nanoseconds", () => {
       const timestamp = getNanoTimestamp();
       expect(typeof timestamp).toBe("string");
-      expect(timestamp.length).toBeGreaterThan(13); // Nanoseconds should be longer
+      expect(timestamp.length).toBeGreaterThan(13);
     });
   });
 
@@ -123,7 +123,7 @@ describe("Logger Utils", () => {
       expect(formatted.stream).toBeDefined();
       expect(formatted.values).toBeDefined();
       expect(formatted.values.length).toBe(1);
-      expect(formatted.values[0].length).toBe(2); // [timestamp, logLine]
+      expect(formatted.values[0].length).toBe(2);
     });
 
     it("should sanitize sensitive data in formatted log", () => {

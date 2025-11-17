@@ -56,7 +56,6 @@ const deleteFaixaPeso = async (id) => {
     if (!faixa) {
       throw new Error("Faixa de peso não encontrada");
     }
-    // Desativar em vez de excluir (tem coluna ativa)
     faixa.ativa = false;
     await faixa.save();
     return { message: "Faixa de peso desativada com sucesso" };
@@ -68,12 +67,10 @@ const deleteFaixaPeso = async (id) => {
 
 const countRelatedRecords = async (id) => {
   try {
-    // Contar preços de faixas ativos dessa faixa de peso
-    // Nota: Como faixa será desativada (não excluída), os preços também serão desativados
     const precosCount = await PrecosFaixas.count({
       where: {
         id_faixa: id,
-        ativo: true, // Apenas preços ativos serão afetados
+        ativo: true,
       },
     });
 

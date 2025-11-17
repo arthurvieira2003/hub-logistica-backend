@@ -3,25 +3,19 @@ const User = require("./models/user.model");
 const sequelize = require("./config/database.config");
 const readline = require("readline");
 
-// Criar interface de leitura
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
 
-// Função para criar um usuário
 async function createUser(name, email, password) {
   try {
-    // Conectar ao banco de dados
     await sequelize.authenticate();
 
-    // Sincronizar o modelo (garantir que a tabela exista)
     await sequelize.sync({ force: false });
 
-    // Criptografar a senha
     const encryptedPassword = await bcrypt.hash(password, 10);
 
-    // Criar o usuário
     const newUser = await User.create({
       name,
       email,
@@ -35,12 +29,10 @@ async function createUser(name, email, password) {
     throw error;
   } finally {
     rl.close();
-    // Fechar a conexão com o banco de dados após um pequeno delay
     setTimeout(() => process.exit(0), 1000);
   }
 }
 
-// Função para perguntar interativamente
 function askQuestion(question) {
   return new Promise((resolve) => {
     rl.question(question, (answer) => {
@@ -49,7 +41,6 @@ function askQuestion(question) {
   });
 }
 
-// Função principal
 async function main() {
   try {
     const name = await askQuestion("Nome: ");
@@ -70,5 +61,4 @@ async function main() {
   }
 }
 
-// Iniciar o programa
 main();

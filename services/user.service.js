@@ -104,7 +104,6 @@ const authenticateUser = async (email, password, req) => {
 
     const token = sessionService.generateToken(user);
 
-    // Criar uma sessão para o usuário
     await sessionService.createSession(user.id, token, req);
 
     return token;

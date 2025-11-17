@@ -1,7 +1,6 @@
 const nfService = require("../../services/nf.service");
 const axios = require("axios");
 
-// Mock dos módulos
 jest.mock("axios");
 
 require("dotenv").config();
@@ -32,7 +31,7 @@ describe("NF Service", () => {
 
       expect(axios.get).toHaveBeenCalled();
       expect(result).toHaveLength(1);
-      expect(result[0].TaxIdNum).toBe("12345678000190"); // CNPJ formatado
+      expect(result[0].TaxIdNum).toBe("12345678000190");
     });
 
     it("deve retornar notas com filtro por data", async () => {
@@ -98,7 +97,7 @@ describe("NF Service", () => {
 
       const callUrl = axios.get.mock.calls[0][0];
       expect(callUrl).toContain("ADD_DAYS");
-      expect(callUrl).toContain("-1"); // Valor mínimo
+      expect(callUrl).toContain("-1");
     });
 
     it("deve usar valor mínimo de 1 dia quando dias é negativo", async () => {
@@ -108,7 +107,7 @@ describe("NF Service", () => {
       await nfService.getNotas("carrier", -5);
 
       const callUrl = axios.get.mock.calls[0][0];
-      expect(callUrl).toContain("-1"); // Valor mínimo
+      expect(callUrl).toContain("-1");
     });
 
     it("deve formatar CNPJ removendo caracteres não numéricos", async () => {

@@ -1,4 +1,3 @@
-// Mock dos modelos antes de importar os serviços
 jest.mock("../../models/user.model", () => {
   return {
     findByPk: jest.fn(),
@@ -18,7 +17,6 @@ const bcrypt = require("bcryptjs");
 const sessionService = require("../../services/session.service");
 const axios = require("axios");
 
-// Mock dos outros módulos
 jest.mock("bcryptjs");
 jest.mock("../../services/session.service");
 jest.mock("axios");

@@ -6,7 +6,6 @@ const {
 } = require("../../middleware/logger.middleware");
 const { getLogger } = require("../../services/logger.service");
 
-// Mock do logger
 jest.mock("../../services/logger.service");
 
 describe("Logger Middleware", () => {

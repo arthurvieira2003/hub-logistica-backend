@@ -1,7 +1,6 @@
 const { LokiLogger, getLogger } = require("../../services/logger.service");
 const axios = require("axios");
 
-// Mock axios
 jest.mock("axios");
 
 describe("LokiLogger", () => {
@@ -61,15 +60,12 @@ describe("LokiLogger", () => {
     it("should flush batch when size limit is reached", async () => {
       axios.post.mockResolvedValue({ status: 204 });
 
-      // Preencher batch até o limite
       for (let i = 0; i < 10; i++) {
         await logger.info(`Message ${i}`);
       }
 
-      // Aguardar um pouco para o flush processar
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      // Verificar se axios.post foi chamado
       expect(axios.post).toHaveBeenCalled();
     });
   });
@@ -78,7 +74,6 @@ describe("LokiLogger", () => {
     it("should open circuit breaker after threshold failures", async () => {
       axios.post.mockRejectedValue(new Error("Network error"));
 
-      // Simular múltiplas falhas
       for (let i = 0; i < 6; i++) {
         logger.batch = [
           {
@@ -89,9 +84,7 @@ describe("LokiLogger", () => {
         ];
         try {
           await logger.flushBatch();
-        } catch (e) {
-          // Ignorar erros esperados
-        }
+        } catch (e) {}
       }
 
       expect(logger.circuitBreaker.state).toBe("OPEN");

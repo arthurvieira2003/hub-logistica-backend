@@ -1,12 +1,8 @@
 const { getLogger } = require("../services/logger.service");
 
-/**
- * Global error handler para erros não capturados
- */
 function setupGlobalErrorHandlers() {
   const logger = getLogger();
 
-  // Capturar erros não tratados
   process.on("uncaughtException", (error) => {
     logger.error("Uncaught Exception", {
       error: error.message,
@@ -14,7 +10,6 @@ function setupGlobalErrorHandlers() {
       name: error.name,
     });
 
-    // Dar tempo para o logger fazer flush antes de encerrar
     logger
       .flush()
       .then(() => {
@@ -25,7 +20,6 @@ function setupGlobalErrorHandlers() {
       });
   });
 
-  // Capturar promessas rejeitadas não tratadas
   process.on("unhandledRejection", (reason, promise) => {
     const error = reason instanceof Error ? reason : new Error(String(reason));
 
@@ -37,7 +31,6 @@ function setupGlobalErrorHandlers() {
     });
   });
 
-  // Capturar avisos
   process.on("warning", (warning) => {
     logger.warn("Process Warning", {
       name: warning.name,
@@ -47,13 +40,9 @@ function setupGlobalErrorHandlers() {
   });
 }
 
-/**
- * Middleware Express para tratamento de erros
- */
 function expressErrorHandler(err, req, res, next) {
   const logger = getLogger();
 
-  // Log do erro
   logger.error("Express Error Handler", {
     requestId: req.id,
     method: req.method,
@@ -67,7 +56,6 @@ function expressErrorHandler(err, req, res, next) {
     userId: req.user?.id,
   });
 
-  // Responder ao cliente
   const statusCode = err.statusCode || err.status || 500;
   const message = statusCode === 500 ? "Internal Server Error" : err.message;
 
@@ -80,9 +68,6 @@ function expressErrorHandler(err, req, res, next) {
   });
 }
 
-/**
- * Handler para rotas não encontradas (404)
- */
 function notFoundHandler(req, res, next) {
   const logger = getLogger();
 

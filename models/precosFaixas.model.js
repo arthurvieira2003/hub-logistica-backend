@@ -114,7 +114,6 @@ const PrecosFaixas = sequelize.define(
   }
 );
 
-// Estabelecendo relacionamentos
 PrecosFaixas.belongsTo(Rotas, { foreignKey: "id_rota" });
 PrecosFaixas.belongsTo(FaixasPeso, { foreignKey: "id_faixa" });
 PrecosFaixas.belongsTo(Transportadoras, { foreignKey: "id_transportadora" });

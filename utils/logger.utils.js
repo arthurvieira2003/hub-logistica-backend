@@ -1,13 +1,6 @@
 const config = require("../config/logger.config");
 
-/**
- * Sanitiza dados sensíveis de um objeto
- * @param {any} data - Dados a serem sanitizados
- * @param {number} depth - Profundidade atual da recursão
- * @returns {any} - Dados sanitizados
- */
 function sanitizeSensitiveData(data, depth = 0) {
-  // Limitar profundidade para evitar loops infinitos
   if (depth > 10) {
     return "[Max depth reached]";
   }
@@ -16,27 +9,22 @@ function sanitizeSensitiveData(data, depth = 0) {
     return data;
   }
 
-  // Se for string, verificar se contém dados sensíveis
   if (typeof data === "string") {
-    // Verificar se a string parece ser um token ou hash
     if (data.length > 50 && /^[A-Za-z0-9+/=]+$/.test(data)) {
       return "***[token-like string]***";
     }
     return data;
   }
 
-  // Se for array, sanitizar cada elemento
   if (Array.isArray(data)) {
     return data.map((item) => sanitizeSensitiveData(item, depth + 1));
   }
 
-  // Se for objeto, sanitizar propriedades
   if (typeof data === "object") {
     const sanitized = {};
     for (const [key, value] of Object.entries(data)) {
       const lowerKey = key.toLowerCase();
 
-      // Verificar se a chave está na lista de campos sensíveis
       if (
         config.sanitize.sensitiveFields.some((field) =>
           lowerKey.includes(field.toLowerCase())
@@ -53,19 +41,10 @@ function sanitizeSensitiveData(data, depth = 0) {
   return data;
 }
 
-/**
- * Gera um timestamp em nanosegundos
- * @returns {string} - Timestamp em nanosegundos
- */
 function getNanoTimestamp() {
   return (Date.now() * 1000000).toString();
 }
 
-/**
- * Extrai informações do erro (stack trace, message, etc)
- * @param {Error} error - Objeto de erro
- * @returns {object} - Informações do erro
- */
 function extractErrorInfo(error) {
   if (!error) {
     return null;
@@ -88,7 +67,6 @@ function extractErrorInfo(error) {
     errorInfo.statusCode = error.statusCode;
   }
 
-  // Copiar outras propriedades relevantes
   if (error.name) {
     errorInfo.name = error.name;
   }
@@ -96,11 +74,6 @@ function extractErrorInfo(error) {
   return errorInfo;
 }
 
-/**
- * Gera labels dinâmicos para o Loki
- * @param {object} additionalLabels - Labels adicionais
- * @returns {object} - Labels completos
- */
 function generateLabels(additionalLabels = {}) {
   return {
     app: config.app.name,
@@ -112,23 +85,15 @@ function generateLabels(additionalLabels = {}) {
   };
 }
 
-/**
- * Formata um log para o formato esperado pelo Loki
- * @param {object} logEntry - Entrada de log
- * @returns {object} - Log formatado
- */
 function formatLogForLoki(logEntry) {
   const { level, message, timestamp, ...metadata } = logEntry;
 
-  // Sanitizar dados sensíveis
   const sanitizedMetadata = sanitizeSensitiveData(metadata);
 
-  // Gerar labels
   const labels = generateLabels({
     level: level || "info",
   });
 
-  // Criar linha de log em formato JSON
   const logLine = JSON.stringify({
     timestamp: timestamp || new Date().toISOString(),
     level: level || "info",

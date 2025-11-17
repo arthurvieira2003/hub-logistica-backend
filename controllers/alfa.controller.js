@@ -2,10 +2,8 @@ const alfaService = require("../services/alfa.service");
 
 const getDadosAlfa = async (req, res) => {
   try {
-    // Obter a data do parâmetro da URL
     const data = req.params.data;
 
-    // Validar formato da data (YYYY-MM-DD)
     const regexData = /^\d{4}-\d{2}-\d{2}$/;
     if (!regexData.test(data)) {
       return res.status(400).json({
@@ -14,7 +12,6 @@ const getDadosAlfa = async (req, res) => {
       });
     }
 
-    // Buscar dados para a data específica
     const dados = await alfaService.getDadosAlfa(data);
     res.status(200).json(dados);
   } catch (error) {

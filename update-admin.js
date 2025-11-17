@@ -2,22 +2,17 @@ const User = require("./models/user.model");
 const sequelize = require("./config/database.config");
 const readline = require("readline");
 
-// Criar interface de leitura
 const rl = readline.createInterface({
   input: process.stdin,
   output: process.stdout,
 });
 
-// Função para atualizar um usuário como administrador
 async function makeUserAdmin(email) {
   try {
-    // Conectar ao banco de dados
     await sequelize.authenticate();
 
-    // Sincronizar o modelo (garantir que a tabela esteja atualizada)
     await sequelize.sync({ force: false });
 
-    // Buscar o usuário
     const user = await User.findOne({ where: { email } });
 
     if (!user) {
@@ -25,7 +20,6 @@ async function makeUserAdmin(email) {
       return null;
     }
 
-    // Atualizar para administrador
     user.isAdmin = true;
     await user.save();
 
@@ -35,12 +29,10 @@ async function makeUserAdmin(email) {
     throw error;
   } finally {
     rl.close();
-    // Fechar a conexão com o banco de dados após um pequeno delay
     setTimeout(() => process.exit(0), 1000);
   }
 }
 
-// Função para perguntar interativamente
 function askQuestion(question) {
   return new Promise((resolve) => {
     rl.question(question, (answer) => {
@@ -49,7 +41,6 @@ function askQuestion(question) {
   });
 }
 
-// Função principal
 async function main() {
   try {
     const email = await askQuestion("Email do usuário: ");
@@ -68,5 +59,4 @@ async function main() {
   }
 }
 
-// Iniciar o programa
 main();

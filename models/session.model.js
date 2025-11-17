@@ -50,7 +50,6 @@ const Session = sequelize.define(
   }
 );
 
-// Estabelecendo relacionamento com o usuário
 Session.belongsTo(User, { foreignKey: "userId" });
 User.hasMany(Session, { foreignKey: "userId" });
 

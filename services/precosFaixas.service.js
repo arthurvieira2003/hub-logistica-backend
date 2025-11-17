@@ -35,7 +35,6 @@ const getAllPrecosFaixas = async () => {
       order: [["id_preco", "DESC"]],
     });
 
-    // Buscar cidade destino para cada rota
     const precosCompletos = await Promise.all(
       precos.map(async (preco) => {
         const precoData = preco.toJSON();
@@ -54,7 +53,7 @@ const getAllPrecosFaixas = async () => {
           precoData.Rota.CidadeDestino = cidadeDestino
             ? cidadeDestino.toJSON()
             : null;
-          precoData.Rota.Cidade = precoData.Rota.CidadeOrigem; // Para compatibilidade
+          precoData.Rota.Cidade = precoData.Rota.CidadeOrigem;
         }
         return precoData;
       })
@@ -116,7 +115,7 @@ const getPrecoFaixaById = async (id) => {
       precoData.Rota.CidadeDestino = cidadeDestino
         ? cidadeDestino.toJSON()
         : null;
-      precoData.Rota.Cidade = precoData.Rota.CidadeOrigem; // Para compatibilidade
+      precoData.Rota.Cidade = precoData.Rota.CidadeOrigem;
     }
 
     return precoData;
@@ -156,7 +155,6 @@ const deletePrecoFaixa = async (id) => {
     if (!preco) {
       throw new Error("Preço de faixa não encontrado");
     }
-    // Desativar em vez de excluir (tem coluna ativo)
     preco.ativo = false;
     await preco.save();
     return { message: "Preço de faixa desativado com sucesso" };

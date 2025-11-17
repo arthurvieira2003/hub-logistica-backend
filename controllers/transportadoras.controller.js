@@ -2,7 +2,8 @@ const transportadorasService = require("../services/transportadoras.service");
 
 const getAllTransportadoras = async (req, res) => {
   try {
-    const transportadoras = await transportadorasService.getAllTransportadoras();
+    const transportadoras =
+      await transportadorasService.getAllTransportadoras();
     res.status(200).json(transportadoras);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -12,7 +13,9 @@ const getAllTransportadoras = async (req, res) => {
 const getTransportadoraById = async (req, res) => {
   try {
     const { id } = req.params;
-    const transportadora = await transportadorasService.getTransportadoraById(id);
+    const transportadora = await transportadorasService.getTransportadoraById(
+      id
+    );
     res.status(200).json(transportadora);
   } catch (error) {
     res.status(404).json({ error: error.message });
@@ -21,7 +24,9 @@ const getTransportadoraById = async (req, res) => {
 
 const createTransportadora = async (req, res) => {
   try {
-    const transportadora = await transportadorasService.createTransportadora(req.body);
+    const transportadora = await transportadorasService.createTransportadora(
+      req.body
+    );
     res.status(201).json(transportadora);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -31,7 +36,10 @@ const createTransportadora = async (req, res) => {
 const updateTransportadora = async (req, res) => {
   try {
     const { id } = req.params;
-    const transportadora = await transportadorasService.updateTransportadora(id, req.body);
+    const transportadora = await transportadorasService.updateTransportadora(
+      id,
+      req.body
+    );
     res.status(200).json(transportadora);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -66,4 +74,3 @@ module.exports = {
   deleteTransportadora,
   countRelatedRecords,
 };
-

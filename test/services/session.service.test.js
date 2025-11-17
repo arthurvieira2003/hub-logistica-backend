@@ -1,4 +1,3 @@
-// Mock dos modelos antes de importar os serviços
 jest.mock("../../models/user.model", () => {
   return {};
 });
@@ -18,7 +17,6 @@ const Session = require("../../models/session.model");
 const User = require("../../models/user.model");
 const jwt = require("jsonwebtoken");
 
-// Mock do jwt
 jest.mock("jsonwebtoken");
 
 require("dotenv").config();
@@ -358,7 +356,7 @@ describe("Session Service", () => {
 
   describe("cleanupExpiredSessions", () => {
     it("deve marcar sessões expiradas como inativas", async () => {
-      Session.update.mockResolvedValue([5]); // 5 sessões atualizadas
+      Session.update.mockResolvedValue([5]);
 
       await sessionService.cleanupExpiredSessions();
 

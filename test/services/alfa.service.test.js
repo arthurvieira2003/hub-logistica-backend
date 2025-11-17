@@ -3,7 +3,6 @@ const nfService = require("../../services/nf.service");
 const axios = require("axios");
 const xml2js = require("xml2js");
 
-// Mock dos módulos
 jest.mock("../../services/nf.service");
 jest.mock("axios");
 jest.mock("xml2js");
@@ -167,7 +166,6 @@ describe("Alfa Service", () => {
 
       const result = await alfaService.getDadosAlfa(dataEspecifica);
 
-      // Deve retornar o XML original quando falha a conversão
       expect(result).toHaveProperty("rastreamento");
     });
 

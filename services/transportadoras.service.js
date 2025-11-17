@@ -56,7 +56,6 @@ const deleteTransportadora = async (id) => {
     if (!transportadora) {
       throw new Error("Transportadora não encontrada");
     }
-    // Desativar em vez de excluir (tem coluna ativa)
     transportadora.ativa = false;
     await transportadora.save();
     return { message: "Transportadora desativada com sucesso" };
@@ -68,12 +67,10 @@ const deleteTransportadora = async (id) => {
 
 const countRelatedRecords = async (id) => {
   try {
-    // Contar preços de faixas ativos dessa transportadora
-    // Nota: Como transportadora será desativada (não excluída), os preços também serão desativados
     const precosCount = await PrecosFaixas.count({
       where: {
         id_transportadora: id,
-        ativo: true, // Apenas preços ativos serão afetados
+        ativo: true,
       },
     });
 

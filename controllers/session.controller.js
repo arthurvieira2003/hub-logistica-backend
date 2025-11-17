@@ -5,7 +5,6 @@ const validateToken = async (req, res) => {
     const token = req.headers.authorization;
     const user = await sessionService.validateToken(token);
 
-    // Atualizar a atividade da sessão
     await sessionService.updateSessionActivity(token);
 
     res.status(200).json(user);
@@ -16,7 +15,6 @@ const validateToken = async (req, res) => {
 
 const getActiveSessions = async (req, res) => {
   try {
-    // Limpar sessões expiradas antes de listar as ativas
     await sessionService.cleanupExpiredSessions();
 
     const sessions = await sessionService.getActiveSessions();

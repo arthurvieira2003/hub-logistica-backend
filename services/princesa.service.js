@@ -4,7 +4,6 @@ require("dotenv").config();
 const nfService = require("./nf.service");
 const Tracking = require("../models/tracking.model");
 
-// Função auxiliar para fazer requisição com retry
 const fetchWithRetry = async (
   url,
   headers,
@@ -15,7 +14,6 @@ const fetchWithRetry = async (
 
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      // Configurar timeout e outras opções
       const response = await axios.get(url, {
         timeout: timeout,
         headers: {
@@ -30,20 +28,16 @@ const fetchWithRetry = async (
     } catch (error) {
       lastError = error;
 
-      // Se não for o último retry, aguarde antes de tentar novamente
       if (attempt < maxRetries - 1) {
-        // Espera exponencial entre tentativas (1s, 2s, 4s, etc.)
         const delay = Math.pow(2, attempt) * 1000;
         await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
 
-  // Se chegou aqui, todas as tentativas falharam
   throw lastError;
 };
 
-// Função para garantir que os valores estejam no tipo correto antes de salvar
 const converterTipos = (nota) => {
   return {
     ...nota,
@@ -53,7 +47,6 @@ const converterTipos = (nota) => {
   };
 };
 
-// Função para obter dados de rastreamento de uma única nota
 const obterDadosRastreamento = async (nota) => {
   try {
     const url = `${process.env.PRINCESA_URL}?documento=${nota.TaxIdNum}&numero=${nota.Serial}&comprovante=1`;
@@ -103,8 +96,6 @@ const obterDadosRastreamento = async (nota) => {
   }
 };
 
-// Verifica se um registro de rastreamento precisa ser atualizado
-// Por padrão, atualizamos a cada 4 horas
 const precisaAtualizar = (tracking, horasParaAtualizar = 4) => {
   if (!tracking || !tracking.lastUpdated) return true;
 
@@ -127,17 +118,14 @@ const getDadosPrincesa = async (options = {}) => {
 
     let notas = await nfService.getNotas("princesa", dias, dataInicio, dataFim);
 
-    // Converter tipos de dados
     notas = notas.map(converterTipos);
 
     const resultados = [];
 
     for (const nota of notas) {
       try {
-        // Garantir que serial seja número
         const serialNumero = parseInt(nota.Serial, 10);
 
-        // Buscar no banco de dados primeiro
         let tracking = await Tracking.findOne({
           where: {
             serial: serialNumero,
@@ -147,22 +135,18 @@ const getDadosPrincesa = async (options = {}) => {
           },
         });
 
-        // Se não encontrou OU se precisa atualizar OU se está forçando atualização
         if (
           !tracking ||
           precisaAtualizar(tracking, horasParaAtualizar) ||
           forcarAtualizacao
         ) {
-          // Buscar dados atualizados da API
           const dadosAtualizados = await obterDadosRastreamento(nota);
 
           if (tracking) {
-            // Atualizar registro existente
             tracking.trackingData = dadosAtualizados.rastreamento;
             tracking.lastUpdated = new Date();
             await tracking.save();
           } else {
-            // Criar novo registro
             tracking = await Tracking.create({
               serial: serialNumero,
               seriesStr: nota.SeriesStr,
@@ -180,7 +164,6 @@ const getDadosPrincesa = async (options = {}) => {
             cacheStatus: "updated",
           });
         } else {
-          // Usar dados em cache
           resultados.push({
             docNum: nota.DocNum,
             docEntry: nota.DocEntry,
@@ -245,26 +228,22 @@ const getDadosPrincesaPorData = async (options = {}) => {
       dataEspecifica,
     } = options;
 
-    // Validar se a data foi fornecida
     if (!dataEspecifica) {
       throw new Error("Data específica é obrigatória");
     }
 
-    // Validar formato da data
     const regexData = /^\d{4}-\d{2}-\d{2}$/;
     if (!regexData.test(dataEspecifica)) {
       throw new Error("Formato de data inválido. Use o formato YYYY-MM-DD");
     }
 
-    // Buscar notas para a data específica
     let notas = await nfService.getNotas(
       "princesa",
-      1, // dias não é usado quando dataInicio e dataFim são fornecidos
+      1,
       dataEspecifica,
       dataEspecifica
     );
 
-    // Verificar se há notas para a data especificada
     if (!notas || notas.length === 0) {
       return {
         status: "success",
@@ -274,17 +253,14 @@ const getDadosPrincesaPorData = async (options = {}) => {
       };
     }
 
-    // Converter tipos de dados
     notas = notas.map(converterTipos);
 
     const resultados = [];
 
     for (const nota of notas) {
       try {
-        // Garantir que serial seja número
         const serialNumero = parseInt(nota.Serial, 10);
 
-        // Buscar no banco de dados primeiro
         let tracking = await Tracking.findOne({
           where: {
             serial: serialNumero,
@@ -294,22 +270,18 @@ const getDadosPrincesaPorData = async (options = {}) => {
           },
         });
 
-        // Se não encontrou OU se precisa atualizar OU se está forçando atualização
         if (
           !tracking ||
           precisaAtualizar(tracking, horasParaAtualizar) ||
           forcarAtualizacao
         ) {
-          // Buscar dados atualizados da API
           const dadosAtualizados = await obterDadosRastreamento(nota);
 
           if (tracking) {
-            // Atualizar registro existente
             tracking.trackingData = dadosAtualizados.rastreamento;
             tracking.lastUpdated = new Date();
             await tracking.save();
           } else {
-            // Criar novo registro
             tracking = await Tracking.create({
               serial: serialNumero,
               seriesStr: nota.SeriesStr,
@@ -327,7 +299,6 @@ const getDadosPrincesaPorData = async (options = {}) => {
             cacheStatus: "updated",
           });
         } else {
-          // Usar dados em cache
           resultados.push({
             docNum: nota.DocNum,
             docEntry: nota.DocEntry,
