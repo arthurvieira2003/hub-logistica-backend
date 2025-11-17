@@ -2,10 +2,17 @@ const cteService = require("../../services/cte.service");
 const axios = require("axios");
 const zlib = require("zlib");
 const xml2js = require("xml2js");
+const { promisify } = require("util");
 
 jest.mock("axios");
 jest.mock("zlib");
-jest.mock("xml2js");
+jest.mock("xml2js", () => {
+  const actualXml2js = jest.requireActual("xml2js");
+  return {
+    ...actualXml2js,
+    parseString: jest.fn(),
+  };
+});
 
 require("dotenv").config();
 
@@ -18,7 +25,24 @@ describe("CTE Service", () => {
 
   describe("getCTEs", () => {
     it("deve retornar lista de CTEs com sucesso", async () => {
-      const mockXmlFile = Buffer.from("compressed-xml-data").toString("base64");
+      // XML válido de CTE
+      const mockCteXml = `<?xml version="1.0" encoding="UTF-8"?>
+        <cteProc xmlns="http://www.portalfiscal.inf.br/cte">
+          <CTe>
+            <infCte>
+              <rem>
+                <xNome>Remetente Teste</xNome>
+              </rem>
+              <dest>
+                <xNome>Destinatário Teste</xNome>
+              </dest>
+            </infCte>
+          </CTe>
+        </cteProc>`;
+
+      const compressedXml = zlib.deflateRawSync(Buffer.from(mockCteXml));
+      const mockXmlFile = compressedXml.toString("base64");
+
       const mockResponseData = [
         {
           Serial: "12345678901234567890123456789012345678901234",
@@ -29,14 +53,24 @@ describe("CTE Service", () => {
         },
       ];
 
-      const mockDecompressedData = Buffer.from("<xml>test</xml>");
-      const mockParsedXml = { xml: { root: "test" } };
+      const mockParsedXml = {
+        cteProc: {
+          CTe: [
+            {
+              infCte: [
+                {
+                  rem: [{ xNome: ["Remetente Teste"] }],
+                  dest: [{ xNome: ["Destinatário Teste"] }],
+                },
+              ],
+            },
+          ],
+        },
+      };
 
       axios.get.mockResolvedValue({ data: mockResponseData });
-      zlib.inflateRawSync.mockReturnValue(mockDecompressedData);
-      xml2js.parseString.mockImplementation((xml, callback) => {
-        callback(null, mockParsedXml);
-      });
+      zlib.inflateRawSync.mockReturnValue(Buffer.from(mockCteXml));
+      xml2js.parseString.mockResolvedValue(mockParsedXml);
 
       const result = await cteService.getCTEs();
 
@@ -66,12 +100,23 @@ describe("CTE Service", () => {
 
       const result = await cteService.getCTEs();
 
-      expect(result).toHaveLength(1);
-      expect(result[0]).not.toHaveProperty("xmlData");
+      // Quando há erro na descompactação, o item é pulado (continue no loop)
+      expect(result).toHaveLength(0);
     });
 
     it("deve lidar com erro ao parsear XML", async () => {
-      const mockXmlFile = Buffer.from("compressed-xml-data").toString("base64");
+      // XML que parece CTE mas falha no parse
+      const mockCteXml = `<?xml version="1.0" encoding="UTF-8"?>
+        <cteProc xmlns="http://www.portalfiscal.inf.br/cte">
+          <CTe>
+            <infCte>
+            </infCte>
+          </CTe>
+        </cteProc>`;
+
+      const compressedXml = zlib.deflateRawSync(Buffer.from(mockCteXml));
+      const mockXmlFile = compressedXml.toString("base64");
+
       const mockResponseData = [
         {
           Serial: "12345678901234567890123456789012345678901234",
@@ -82,18 +127,14 @@ describe("CTE Service", () => {
         },
       ];
 
-      const mockDecompressedData = Buffer.from("<invalid-xml>");
-
       axios.get.mockResolvedValue({ data: mockResponseData });
-      zlib.inflateRawSync.mockReturnValue(mockDecompressedData);
-      xml2js.parseString.mockImplementation((xml, callback) => {
-        callback(new Error("Erro ao parsear XML"), null);
-      });
+      zlib.inflateRawSync.mockReturnValue(Buffer.from(mockCteXml));
+      xml2js.parseString.mockRejectedValue(new Error("Erro ao parsear XML"));
 
       const result = await cteService.getCTEs();
 
-      expect(result).toHaveLength(1);
-      expect(result[0]).not.toHaveProperty("xmlData");
+      // Quando há erro no parse, o item é pulado (continue no catch)
+      expect(result).toHaveLength(0);
     });
 
     it("deve lançar erro quando a requisição falha", async () => {

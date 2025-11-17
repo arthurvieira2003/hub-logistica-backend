@@ -153,9 +153,12 @@ describe("Logger Middleware", () => {
         .post("/test")
         .send({ key: "value" })
         .expect(200)
-        .end(() => {
-          expect(mockLogger.info).toHaveBeenCalledWith(
-            "HTTP Request received",
+        .end((err) => {
+          if (err) return done(err);
+          // O requestBody é adicionado depois do primeiro log, então verificamos o segundo log (completion)
+          expect(mockLogger.log).toHaveBeenCalledWith(
+            "info",
+            "HTTP Request completed",
             expect.objectContaining({
               requestBody: { key: "value" },
             })
@@ -165,15 +168,22 @@ describe("Logger Middleware", () => {
     });
 
     it("should capture user ID if available", (done) => {
-      app.get("/test", (req, res) => {
+      // Middleware para definir req.user antes do logger
+      app.use((req, res, next) => {
         req.user = { id: "user-123" };
+        next();
+      });
+      
+      app.get("/test", (req, res) => {
         res.status(200).json({});
       });
 
       request(app)
         .get("/test")
         .expect(200)
-        .end(() => {
+        .end((err) => {
+          if (err) return done(err);
+          // userId é adicionado antes do primeiro log, então pode ser verificado no primeiro ou segundo
           expect(mockLogger.info).toHaveBeenCalledWith(
             "HTTP Request received",
             expect.objectContaining({

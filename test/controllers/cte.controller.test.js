@@ -1,5 +1,9 @@
 jest.mock("../../config/database.config", () => {
-  return {};
+  const { Sequelize } = require("sequelize");
+  const mockSequelize = new Sequelize("sqlite::memory:", {
+    logging: false,
+  });
+  return mockSequelize;
 });
 
 const cteController = require("../../controllers/cte.controller");
