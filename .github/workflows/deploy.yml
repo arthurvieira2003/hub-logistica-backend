@@ -14,20 +14,15 @@ permissions:
   contents: read
   actions: read
   packages: write
-  workflows: read
 
 jobs:
   check-workflow:
     name: Check Workflow Trigger
     runs-on: ubuntu-latest
-    if: always()
     steps:
       - name: Debug workflow event
         run: |
           echo "Event Name: ${{ github.event_name }}"
-          echo "Repository: ${{ github.repository }}"
-          echo "Ref: ${{ github.ref }}"
-          echo "SHA: ${{ github.sha }}"
           if [ "${{ github.event_name }}" == "workflow_run" ]; then
             echo "Workflow Run ID: ${{ github.event.workflow_run.id }}"
             echo "Workflow Run Conclusion: ${{ github.event.workflow_run.conclusion }}"
@@ -35,19 +30,18 @@ jobs:
             echo "Head Branch: ${{ github.event.workflow_run.head_branch }}"
             echo "Head SHA: ${{ github.event.workflow_run.head_sha }}"
             echo "Workflow Name: ${{ github.event.workflow_run.name }}"
-            echo "Workflow Path: ${{ github.event.workflow_run.path }}"
           fi
 
   build-backend:
     name: Build and Push Backend Image
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
+          ref: ${{ github.event.workflow_run.head_branch || github.ref || 'main' }}
           sha: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Set up Docker Buildx
@@ -82,7 +76,7 @@ jobs:
   build-frontend:
     name: Build and Push Frontend Image
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     steps:
       - name: Checkout frontend repository
@@ -126,13 +120,13 @@ jobs:
     name: Deploy to VPS via Portainer
     runs-on: ubuntu-latest
     needs: [build-backend, build-frontend]
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_branch || github.ref }}
+          ref: ${{ github.event.workflow_run.head_branch || github.ref || 'main' }}
           sha: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup SSH
@@ -158,28 +152,28 @@ jobs:
 
       - name: Create .env file on VPS
         run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << EOF
             cd /opt/hub-logistica
             cat > .env << 'ENVEOF'
-DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}
-DB_NAME=${{ secrets.DB_NAME }}
-DB_USER=${{ secrets.DB_USER }}
-DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-DB_HOST=${{ secrets.DB_HOST }}
-DB_DIALECT=${{ secrets.DB_DIALECT }}
-DB_PORT=${{ secrets.DB_PORT }}
-JWT_SECRET=${{ secrets.JWT_SECRET }}
-LOKI_HOST=${{ secrets.LOKI_HOST }}
-LOKI_PORT=${{ secrets.LOKI_PORT }}
-SKIP_LOKI_DIAGNOSTICS=${{ secrets.SKIP_LOKI_DIAGNOSTICS }}
-VPS_IP=${{ secrets.VPS_IP }}
-API_BASE_URL=${{ secrets.API_BASE_URL }}
-ENVEOF
+              DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}
+              DB_NAME=${{ secrets.DB_NAME }}
+              DB_USER=${{ secrets.DB_USER }}
+              DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+              DB_HOST=${{ secrets.DB_HOST }}
+              DB_DIALECT=${{ secrets.DB_DIALECT }}
+              DB_PORT=${{ secrets.DB_PORT }}
+              JWT_SECRET=${{ secrets.JWT_SECRET }}
+              LOKI_HOST=${{ secrets.LOKI_HOST }}
+              LOKI_PORT=${{ secrets.LOKI_PORT }}
+              SKIP_LOKI_DIAGNOSTICS=${{ secrets.SKIP_LOKI_DIAGNOSTICS }}
+              VPS_IP=${{ secrets.VPS_IP }}
+              API_BASE_URL=${{ secrets.API_BASE_URL }}
+            ENVEOF
           EOF
 
       - name: Execute deploy via Portainer
         run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << EOF
             cd /opt/hub-logistica
             chmod +x deploy-portainer.sh
             export PORTAINER_URL="${{ secrets.PORTAINER_URL }}"
