@@ -92,7 +92,7 @@ jobs:
           cache-to: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/hub-logistica-frontend:buildcache,mode=max
 
   deploy:
-    name: Deploy to VPS
+    name: Deploy to VPS via Portainer
     runs-on: ubuntu-latest
     needs: [build-backend, build-frontend]
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
@@ -120,28 +120,43 @@ jobs:
 
       - name: Copy deploy script to VPS
         run: |
-          scp -r .github/scripts/deploy.sh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/hub-logistica/
+          scp -r .github/scripts/deploy-portainer.sh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/hub-logistica/
 
-      - name: Execute deploy on VPS
+      - name: Create .env file on VPS
         run: |
           ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
             cd /opt/hub-logistica
-            chmod +x deploy.sh
-            export DOCKER_HUB_USERNAME="${{ secrets.DOCKER_HUB_USERNAME }}"
-            export DOCKER_HUB_TOKEN="${{ secrets.DOCKER_HUB_TOKEN }}"
-            bash deploy.sh
+            cat > .env << 'ENVEOF'
+DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}
+DB_NAME=${{ secrets.DB_NAME }}
+DB_USER=${{ secrets.DB_USER }}
+DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+DB_HOST=${{ secrets.DB_HOST }}
+DB_DIALECT=${{ secrets.DB_DIALECT }}
+DB_PORT=${{ secrets.DB_PORT }}
+JWT_SECRET=${{ secrets.JWT_SECRET }}
+LOKI_HOST=${{ secrets.LOKI_HOST }}
+LOKI_PORT=${{ secrets.LOKI_PORT }}
+SKIP_LOKI_DIAGNOSTICS=${{ secrets.SKIP_LOKI_DIAGNOSTICS }}
+VPS_IP=${{ secrets.VPS_IP }}
+API_BASE_URL=${{ secrets.API_BASE_URL }}
+ENVEOF
+          EOF
+
+      - name: Execute deploy via Portainer
+        run: |
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
+            cd /opt/hub-logistica
+            chmod +x deploy-portainer.sh
+            export PORTAINER_URL="${{ secrets.PORTAINER_URL }}"
+            export PORTAINER_USERNAME="${{ secrets.PORTAINER_USERNAME }}"
+            export PORTAINER_PASSWORD="${{ secrets.PORTAINER_PASSWORD }}"
+            export PORTAINER_ENDPOINT_ID="${{ secrets.PORTAINER_ENDPOINT_ID }}"
+            export PORTAINER_STACK_NAME="${{ secrets.PORTAINER_STACK_NAME }}"
+            bash deploy-portainer.sh
           EOF
 
       - name: Verify deployment
         run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
-            cd /opt/hub-logistica
-            if docker compose version &> /dev/null 2>&1; then
-              docker compose -f docker-compose.yml ps
-            elif command -v docker-compose &> /dev/null 2>&1; then
-              docker-compose -f docker-compose.yml ps
-            else
-              echo "⚠ docker compose não encontrado, mas deploy pode ter funcionado"
-            fi
-            echo "Deployment completed successfully!"
-          EOF
+          echo "✅ Deploy concluído via Portainer API!"
+          echo "Verifique o status da stack no Portainer: ${{ secrets.PORTAINER_URL }}"
