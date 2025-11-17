@@ -14,15 +14,20 @@ permissions:
   contents: read
   actions: read
   packages: write
+  workflows: read
 
 jobs:
   check-workflow:
     name: Check Workflow Trigger
     runs-on: ubuntu-latest
+    if: always()
     steps:
       - name: Debug workflow event
         run: |
           echo "Event Name: ${{ github.event_name }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "SHA: ${{ github.sha }}"
           if [ "${{ github.event_name }}" == "workflow_run" ]; then
             echo "Workflow Run ID: ${{ github.event.workflow_run.id }}"
             echo "Workflow Run Conclusion: ${{ github.event.workflow_run.conclusion }}"
@@ -30,6 +35,7 @@ jobs:
             echo "Head Branch: ${{ github.event.workflow_run.head_branch }}"
             echo "Head SHA: ${{ github.event.workflow_run.head_sha }}"
             echo "Workflow Name: ${{ github.event.workflow_run.name }}"
+            echo "Workflow Path: ${{ github.event.workflow_run.path }}"
           fi
 
   build-backend:
@@ -85,7 +91,7 @@ jobs:
           repository: arthurvieira2003/hub-logistica
           path: frontend
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.event.workflow_run.head_branch || 'main' }}
+          ref: ${{ github.event.workflow_run.head_branch || github.ref || 'main' }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
