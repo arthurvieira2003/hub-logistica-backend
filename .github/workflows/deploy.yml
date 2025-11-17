@@ -136,6 +136,12 @@ jobs:
         run: |
           ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'EOF'
             cd /opt/hub-logistica
-            docker-compose -f docker-compose.yml ps
+            if command -v docker-compose &> /dev/null; then
+              docker-compose -f docker-compose.yml ps
+            elif docker compose version &> /dev/null; then
+              docker compose -f docker-compose.yml ps
+            else
+              echo "⚠ docker-compose não encontrado, mas deploy pode ter funcionado"
+            fi
             echo "Deployment completed successfully!"
           EOF
