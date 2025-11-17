@@ -1,0 +1,61 @@
+services:
+  backend:
+    image: ${DOCKER_HUB_USERNAME}/hub-logistica-backend:latest
+    container_name: hub-logistica-backend
+    ports:
+      - "0.0.0.0:4010:4010"
+    environment:
+      - NODE_ENV=production
+      - PORT=4010
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_DIALECT=${DB_DIALECT}
+      - DB_PORT=${DB_PORT}
+      - JWT_SECRET=${JWT_SECRET}
+      - LOKI_HOST=${LOKI_HOST}
+      - LOKI_PORT=${LOKI_PORT}
+      - SKIP_LOKI_DIAGNOSTICS=${SKIP_LOKI_DIAGNOSTICS}
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    healthcheck:
+      test: ["CMD-SHELL", "wget --quiet --tries=1 --spider http://localhost:4010/estados || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - fullstack-network
+
+  frontend:
+    image: ${DOCKER_HUB_USERNAME}/hub-logistica-frontend:latest
+    container_name: hub-logistica-frontend
+    ports:
+      - "0.0.0.0:3060:3060"
+    environment:
+      - PORT=3060
+      - NODE_ENV=production
+      - VPS_IP=${VPS_IP}
+      - BACKEND_PORT=4010
+      - API_BASE_URL=${API_BASE_URL}
+    depends_on:
+      - backend
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    networks:
+      - fullstack-network
+
+networks:
+  fullstack-network:
+    driver: bridge
+    name: hub-logistica-network
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.driver.mtu: "1500"
+

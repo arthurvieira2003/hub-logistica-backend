@@ -3,7 +3,7 @@ const os = require("os");
 
 module.exports = {
   loki: {
-    host: process.env.LOKI_HOST || "189.126.105.186",
+    host: process.env.LOKI_HOST,
     port: process.env.LOKI_PORT || "3100",
     endpoint: process.env.LOKI_ENDPOINT || "/loki/api/v1/push",
     get url() {
