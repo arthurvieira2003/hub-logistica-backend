@@ -5,10 +5,10 @@ set -e
 echo "Iniciando deploy do HUB Logística..."
 
 if docker compose --help > /dev/null 2>&1; then
-    DOCKER_COMPOSE_CMD="docker compose"
+    DOCKER_COMPOSE_CMD=(docker compose)
     echo "Usando: docker compose (V2)"
 elif command -v docker-compose > /dev/null 2>&1; then
-    DOCKER_COMPOSE_CMD="docker-compose"
+    DOCKER_COMPOSE_CMD=(docker-compose)
     echo "Usando: docker-compose (V1)"
 else
     echo "Erro: docker compose não está disponível."
@@ -16,17 +16,9 @@ else
     docker --version 2>&1 || echo "Docker não está instalado"
     echo ""
     echo "Tentando usar 'docker compose' diretamente..."
-    DOCKER_COMPOSE_CMD="docker compose"
+    DOCKER_COMPOSE_CMD=(docker compose)
     echo "Usando: docker compose"
 fi
-
-docker_compose() {
-    if [ "$DOCKER_COMPOSE_CMD" = "docker compose" ]; then
-        docker compose "$@"
-    else
-        docker-compose "$@"
-    fi
-}
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -65,13 +57,13 @@ else
 fi
 
 echo -e "${YELLOW}Baixando imagens mais recentes...${NC}"
-docker_compose -f "$COMPOSE_FILE" pull || {
+"${DOCKER_COMPOSE_CMD[@]}" -f "$COMPOSE_FILE" pull || {
   echo -e "${RED}Erro ao fazer pull das imagens${NC}"
   exit 1
 }
 
 echo -e "${YELLOW}Parando containers existentes...${NC}"
-docker_compose -f "$COMPOSE_FILE" down || {
+"${DOCKER_COMPOSE_CMD[@]}" -f "$COMPOSE_FILE" down || {
   echo -e "${YELLOW}Nenhum container em execução${NC}"
 }
 
@@ -80,22 +72,22 @@ docker image prune -f
 
 echo -e "${YELLOW}Iniciando containers...${NC}"
 if [ -f "$ENV_FILE" ]; then
-  docker_compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d || {
+  "${DOCKER_COMPOSE_CMD[@]}" -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d || {
     echo -e "${RED}Erro ao iniciar containers${NC}"
     echo -e "${YELLOW}Tentando restaurar backup...${NC}"
     if [ -f "$BACKUP_DIR/docker-compose_$TIMESTAMP.yml" ]; then
       cp "$BACKUP_DIR/docker-compose_$TIMESTAMP.yml" "$COMPOSE_FILE"
-      docker_compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
+      "${DOCKER_COMPOSE_CMD[@]}" -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
     fi
     exit 1
   }
 else
-  docker_compose -f "$COMPOSE_FILE" up -d || {
+  "${DOCKER_COMPOSE_CMD[@]}" -f "$COMPOSE_FILE" up -d || {
     echo -e "${RED}Erro ao iniciar containers${NC}"
     echo -e "${YELLOW}Tentando restaurar backup...${NC}"
     if [ -f "$BACKUP_DIR/docker-compose_$TIMESTAMP.yml" ]; then
       cp "$BACKUP_DIR/docker-compose_$TIMESTAMP.yml" "$COMPOSE_FILE"
-      docker_compose -f "$COMPOSE_FILE" up -d
+      "${DOCKER_COMPOSE_CMD[@]}" -f "$COMPOSE_FILE" up -d
     fi
     exit 1
   }
@@ -105,20 +97,20 @@ echo -e "${YELLOW}Aguardando containers iniciarem...${NC}"
 sleep 10
 
 echo -e "${YELLOW}Verificando saúde dos containers...${NC}"
-if docker_compose -f "$COMPOSE_FILE" ps | grep -q "Up"; then
+if "${DOCKER_COMPOSE_CMD[@]}" -f "$COMPOSE_FILE" ps | grep -q "Up"; then
   echo -e "${GREEN}Containers iniciados com sucesso!${NC}"
 else
   echo -e "${RED}Erro: Containers não estão rodando${NC}"
-  docker_compose -f "$COMPOSE_FILE" ps
-  docker_compose -f "$COMPOSE_FILE" logs --tail=50
+  "${DOCKER_COMPOSE_CMD[@]}" -f "$COMPOSE_FILE" ps
+  "${DOCKER_COMPOSE_CMD[@]}" -f "$COMPOSE_FILE" logs --tail=50
   exit 1
 fi
 
 echo -e "${YELLOW}Status dos containers:${NC}"
-docker_compose -f "$COMPOSE_FILE" ps
+"${DOCKER_COMPOSE_CMD[@]}" -f "$COMPOSE_FILE" ps
 
 echo -e "${YELLOW}Últimas linhas dos logs:${NC}"
-docker_compose -f "$COMPOSE_FILE" logs --tail=20
+"${DOCKER_COMPOSE_CMD[@]}" -f "$COMPOSE_FILE" logs --tail=20
 
 echo -e "${GREEN}Deploy concluído com sucesso!${NC}"
 if [ -n "$VPS_IP" ]; then
