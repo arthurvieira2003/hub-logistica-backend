@@ -20,14 +20,14 @@ jest.mock("../../config/database.config", () => {
   return mockSequelize;
 });
 
+jest.mock("../../services/cte.service");
+
 const cteController = require("../../controllers/cte.controller");
 const cteService = require("../../services/cte.service");
 const {
   createMockRequest,
   createMockResponse,
 } = require("../helpers/mockFactory");
-
-jest.mock("../../services/cte.service");
 
 describe("CTE Controller", () => {
   let req, res;

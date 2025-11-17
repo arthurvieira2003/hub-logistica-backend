@@ -1,6 +1,5 @@
 const axios = require("axios");
 const zlib = require("zlib");
-const xml2js = require("xml2js");
 
 jest.mock("axios");
 // Mock apenas inflateRawSync, mas mantém deflateRawSync real para os testes
@@ -13,11 +12,13 @@ jest.mock("zlib", () => {
 });
 
 // Mock xml2js.parseString antes de importar o serviço
+let mockParseStringFn;
 jest.mock("xml2js", () => {
   const actualXml2js = jest.requireActual("xml2js");
+  mockParseStringFn = jest.fn();
   return {
     ...actualXml2js,
-    parseString: jest.fn(),
+    parseString: mockParseStringFn,
   };
 });
 
@@ -29,7 +30,7 @@ jest.mock("util", () => {
     promisify: (fn) => {
       // Se for o parseString mockado, retorna uma função que usa o mock diretamente
       // Comparar pela referência do mock
-      if (fn && fn._isMockFunction) {
+      if (fn && fn._isMockFunction && fn === mockParseStringFn) {
         return async (...args) => {
           // Chamar o mock e retornar o resultado como Promise
           const result = fn(...args);
@@ -46,13 +47,13 @@ jest.mock("util", () => {
 });
 
 const cteService = require("../../services/cte.service");
-const xml2js = require("xml2js");
 
 require("dotenv").config();
 
 describe("CTE Service", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockParseStringFn.mockClear();
     process.env.WS_URL = "https://test-ws.example.com";
     process.env.WS_TOKEN = "test-token";
   });
@@ -104,13 +105,13 @@ describe("CTE Service", () => {
 
       axios.get.mockResolvedValue({ data: mockResponseData });
       zlib.inflateRawSync.mockReturnValue(Buffer.from(mockCteXml));
-      xml2js.parseString.mockResolvedValue(mockParsedXml);
+      mockParseStringFn.mockResolvedValue(mockParsedXml);
 
       const result = await cteService.getCTEs();
 
       expect(axios.get).toHaveBeenCalled();
       expect(zlib.inflateRawSync).toHaveBeenCalled();
-      expect(xml2js.parseString).toHaveBeenCalled();
+      expect(mockParseStringFn).toHaveBeenCalled();
       expect(result).toHaveLength(1);
       expect(result[0]).toHaveProperty("xmlData", mockParsedXml);
     });
@@ -163,7 +164,7 @@ describe("CTE Service", () => {
 
       axios.get.mockResolvedValue({ data: mockResponseData });
       zlib.inflateRawSync.mockReturnValue(Buffer.from(mockCteXml));
-      xml2js.parseString.mockRejectedValue(new Error("Erro ao parsear XML"));
+      mockParseStringFn.mockRejectedValue(new Error("Erro ao parsear XML"));
 
       const result = await cteService.getCTEs();
 
