@@ -4,16 +4,25 @@ set -e
 
 echo "Iniciando deploy do HUB Logística..."
 
-if command -v docker-compose &> /dev/null; then
-    DOCKER_COMPOSE_CMD="docker-compose"
-elif docker compose version &> /dev/null; then
+# Detectar comando docker compose (priorizar docker compose V2)
+# Primeiro tenta docker compose (sem hífen) - versão V2 integrada
+if docker compose --help > /dev/null 2>&1; then
     DOCKER_COMPOSE_CMD="docker compose"
+    echo "Usando: docker compose (V2)"
+# Depois tenta docker-compose (com hífen) - versão V1 standalone
+elif command -v docker-compose > /dev/null 2>&1; then
+    DOCKER_COMPOSE_CMD="docker-compose"
+    echo "Usando: docker-compose (V1)"
 else
-    echo "Erro: docker-compose não está instalado. Instale Docker Compose primeiro."
-    exit 1
+    echo "Erro: docker compose não está disponível."
+    echo "Verificando Docker..."
+    docker --version 2>&1 || echo "Docker não está instalado"
+    echo ""
+    echo "Tentando usar 'docker compose' diretamente (última tentativa)..."
+    # Última tentativa: assumir que docker compose existe
+    DOCKER_COMPOSE_CMD="docker compose"
+    echo "Usando: docker compose (assumindo disponível)"
 fi
-
-echo "Usando: $DOCKER_COMPOSE_CMD"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
