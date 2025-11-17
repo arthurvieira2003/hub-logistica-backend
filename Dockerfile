@@ -11,4 +11,3 @@ COPY . .
 EXPOSE 4010
 
 CMD ["node", "app.js"]
-
