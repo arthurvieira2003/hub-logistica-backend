@@ -1,12 +1,20 @@
 jest.mock("../../config/database.config", () => {
   // Mock simples que não precisa de sqlite3
+  // Cria um objeto mock que pode ser usado como modelo Sequelize
+  const createMockModel = (name) => {
+    const model = {
+      name,
+      belongsTo: jest.fn().mockReturnValue(model),
+      hasMany: jest.fn().mockReturnValue(model),
+      hasOne: jest.fn().mockReturnValue(model),
+      belongsToMany: jest.fn().mockReturnValue(model),
+    };
+    return model;
+  };
+
   const mockSequelize = {
     define: jest.fn((name, attributes, options) => {
-      return {
-        name,
-        attributes,
-        options,
-      };
+      return createMockModel(name);
     }),
   };
   return mockSequelize;
