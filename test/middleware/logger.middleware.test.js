@@ -59,10 +59,11 @@ describe("Logger Middleware", () => {
   describe("httpLoggerMiddleware", () => {
     beforeEach(() => {
       app.use(requestIdMiddleware);
-      app.use(httpLoggerMiddleware);
+      // httpLoggerMiddleware será adicionado em cada teste para permitir ordem customizada
     });
 
     it("should log incoming request", (done) => {
+      app.use(httpLoggerMiddleware);
       app.get("/test", (req, res) => {
         res.status(200).json({});
       });
@@ -83,6 +84,7 @@ describe("Logger Middleware", () => {
     });
 
     it("should log request completion with status code", (done) => {
+      app.use(httpLoggerMiddleware);
       app.get("/test", (req, res) => {
         res.status(200).json({});
       });
@@ -104,6 +106,7 @@ describe("Logger Middleware", () => {
     });
 
     it("should log error level for 5xx status codes", (done) => {
+      app.use(httpLoggerMiddleware);
       app.get("/error", (req, res) => {
         res.status(500).json({ error: "Internal error" });
       });
@@ -124,6 +127,7 @@ describe("Logger Middleware", () => {
     });
 
     it("should log warn level for 4xx status codes", (done) => {
+      app.use(httpLoggerMiddleware);
       app.get("/notfound", (req, res) => {
         res.status(404).json({ error: "Not found" });
       });
@@ -144,7 +148,9 @@ describe("Logger Middleware", () => {
     });
 
     it("should capture request body for small payloads", (done) => {
+      // express.json() precisa estar ANTES do httpLoggerMiddleware para que req.body esteja disponível
       app.use(express.json());
+      app.use(httpLoggerMiddleware);
       app.post("/test", (req, res) => {
         res.status(200).json({});
       });
@@ -155,25 +161,28 @@ describe("Logger Middleware", () => {
         .expect(200)
         .end((err) => {
           if (err) return done(err);
-          // O requestBody é adicionado depois do primeiro log, então verificamos o segundo log (completion)
-          expect(mockLogger.log).toHaveBeenCalledWith(
-            "info",
-            "HTTP Request completed",
-            expect.objectContaining({
-              requestBody: { key: "value" },
-            })
+          // O requestBody é adicionado ao requestInfo antes do log de completion
+          // então deve estar no responseInfo
+          const logCalls = mockLogger.log.mock.calls;
+          const completionCall = logCalls.find(
+            (call) => call[1] === "HTTP Request completed"
           );
+          expect(completionCall).toBeDefined();
+          expect(completionCall[2]).toHaveProperty("requestBody", {
+            key: "value",
+          });
           done();
         });
     });
 
     it("should capture user ID if available", (done) => {
-      // Middleware para definir req.user antes do logger
+      // Middleware para definir req.user ANTES do logger
       app.use((req, res, next) => {
         req.user = { id: "user-123" };
         next();
       });
-      
+      app.use(httpLoggerMiddleware);
+
       app.get("/test", (req, res) => {
         res.status(200).json({});
       });

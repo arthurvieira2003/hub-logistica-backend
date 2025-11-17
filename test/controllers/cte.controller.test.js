@@ -1,8 +1,14 @@
 jest.mock("../../config/database.config", () => {
-  const { Sequelize } = require("sequelize");
-  const mockSequelize = new Sequelize("sqlite::memory:", {
-    logging: false,
-  });
+  // Mock simples que não precisa de sqlite3
+  const mockSequelize = {
+    define: jest.fn((name, attributes, options) => {
+      return {
+        name,
+        attributes,
+        options,
+      };
+    }),
+  };
   return mockSequelize;
 });
 

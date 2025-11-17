@@ -101,14 +101,6 @@ describe("LokiLogger", () => {
   });
 
   describe("Retry mechanism", () => {
-    beforeEach(() => {
-      jest.useFakeTimers();
-    });
-
-    afterEach(() => {
-      jest.useRealTimers();
-    });
-
     it("should retry on failure with exponential backoff", async () => {
       // Mock para simular erro de rede que deve ser retentado
       const networkError = new Error("Network error");
@@ -116,28 +108,27 @@ describe("LokiLogger", () => {
       networkError.response = null;
       networkError.request = {};
 
-      axios.post
-        .mockRejectedValueOnce(networkError)
-        .mockRejectedValueOnce(networkError)
-        .mockResolvedValueOnce({ status: 204 });
+      let callCount = 0;
+      axios.post.mockImplementation(() => {
+        callCount++;
+        if (callCount < 3) {
+          return Promise.reject(networkError);
+        }
+        return Promise.resolve({ status: 204 });
+      });
 
       logger.batch = [
         { level: "info", message: "Test", timestamp: new Date().toISOString() },
       ];
 
-      const flushPromise = logger.flushBatch();
-      
-      // Avançar os timers para os delays de retry (1000ms, 2000ms)
-      jest.advanceTimersByTime(1000);
-      await Promise.resolve(); // Permitir que a primeira tentativa falhe
-      jest.advanceTimersByTime(2000);
-      await Promise.resolve(); // Permitir que a segunda tentativa falhe
-      jest.advanceTimersByTime(4000);
-      
-      await flushPromise;
+      // Usar timeout maior para permitir os retries
+      await Promise.race([
+        logger.flushBatch(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000)),
+      ]);
 
       expect(axios.post).toHaveBeenCalledTimes(3);
-    });
+    }, 20000);
   });
 
   describe("Flush and close", () => {

@@ -5,7 +5,14 @@ const xml2js = require("xml2js");
 const { promisify } = require("util");
 
 jest.mock("axios");
-jest.mock("zlib");
+// Mock apenas inflateRawSync, mas mantém deflateRawSync real para os testes
+jest.mock("zlib", () => {
+  const actualZlib = jest.requireActual("zlib");
+  return {
+    ...actualZlib,
+    inflateRawSync: jest.fn(),
+  };
+});
 jest.mock("xml2js", () => {
   const actualXml2js = jest.requireActual("xml2js");
   return {
