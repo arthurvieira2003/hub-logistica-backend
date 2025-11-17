@@ -20,12 +20,7 @@ jest.mock("../../config/database.config", () => {
   return mockSequelize;
 });
 
-jest.mock("../../services/cte.service", () => ({
-  getCTEs: jest.fn(),
-  getXMLBySerial: jest.fn(),
-  getPDFByChave: jest.fn(),
-  getCTEBySerial: jest.fn(),
-}));
+jest.mock("../../services/cte.service");
 
 const cteController = require("../../controllers/cte.controller");
 const cteService = require("../../services/cte.service");
@@ -41,6 +36,20 @@ describe("CTE Controller", () => {
     req = createMockRequest();
     res = createMockResponse();
     jest.clearAllMocks();
+
+    // Garantir que os métodos do serviço sejam mockados
+    if (!cteService.getCTEs) {
+      cteService.getCTEs = jest.fn();
+    }
+    if (!cteService.getXMLBySerial) {
+      cteService.getXMLBySerial = jest.fn();
+    }
+    if (!cteService.getPDFByChave) {
+      cteService.getPDFByChave = jest.fn();
+    }
+    if (!cteService.getCTEBySerial) {
+      cteService.getCTEBySerial = jest.fn();
+    }
   });
 
   describe("getCTEs", () => {
@@ -54,11 +63,12 @@ describe("CTE Controller", () => {
         },
       ];
 
+      req.query = {};
       cteService.getCTEs.mockResolvedValue(mockCTEs);
 
       await cteController.getCTEs(req, res);
 
-      expect(cteService.getCTEs).toHaveBeenCalled();
+      expect(cteService.getCTEs).toHaveBeenCalledWith(null);
       expect(res.json).toHaveBeenCalledWith(mockCTEs);
     });
 
