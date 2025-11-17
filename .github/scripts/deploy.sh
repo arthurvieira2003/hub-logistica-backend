@@ -4,15 +4,15 @@ set -e
 
 echo "Iniciando deploy do HUB Logística..."
 
-if docker compose --help > /dev/null 2>&1; then
-    docker_compose_cmd() {
-        docker compose "$@"
-    }
+# Detectar comando docker compose
+# Usar função simples que chama o comando correto
+if command -v docker > /dev/null 2>&1 && docker compose version > /dev/null 2>&1; then
+    # Docker Compose V2 (plugin) - duas palavras
+    USE_DOCKER_COMPOSE_V2=true
     echo "Usando: docker compose (V2)"
 elif command -v docker-compose > /dev/null 2>&1; then
-    docker_compose_cmd() {
-        docker-compose "$@"
-    }
+    # Docker Compose V1 (standalone) - uma palavra
+    USE_DOCKER_COMPOSE_V2=false
     echo "Usando: docker-compose (V1)"
 else
     echo "Erro: docker compose não está disponível."
@@ -20,11 +20,19 @@ else
     docker --version 2>&1 || echo "Docker não está instalado"
     echo ""
     echo "Tentando usar 'docker compose' diretamente..."
-    docker_compose_cmd() {
-        docker compose "$@"
-    }
+    # Última tentativa: assumir docker compose existe
+    USE_DOCKER_COMPOSE_V2=true
     echo "Usando: docker compose"
 fi
+
+# Função helper para executar docker compose
+docker_compose_cmd() {
+    if [ "$USE_DOCKER_COMPOSE_V2" = "true" ]; then
+        docker compose "$@"
+    else
+        docker-compose "$@"
+    fi
+}
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
