@@ -20,7 +20,12 @@ jest.mock("../../config/database.config", () => {
   return mockSequelize;
 });
 
-jest.mock("../../services/cte.service");
+jest.mock("../../services/cte.service", () => ({
+  getCTEs: jest.fn(),
+  getXMLBySerial: jest.fn(),
+  getPDFByChave: jest.fn(),
+  getCTEBySerial: jest.fn(),
+}));
 
 const cteController = require("../../controllers/cte.controller");
 const cteService = require("../../services/cte.service");
