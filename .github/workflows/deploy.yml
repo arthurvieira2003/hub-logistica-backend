@@ -129,7 +129,7 @@ jobs:
             chmod +x deploy.sh
             export DOCKER_HUB_USERNAME="${{ secrets.DOCKER_HUB_USERNAME }}"
             export DOCKER_HUB_TOKEN="${{ secrets.DOCKER_HUB_TOKEN }}"
-            ./deploy.sh
+            bash deploy.sh
           EOF
 
       - name: Verify deployment
