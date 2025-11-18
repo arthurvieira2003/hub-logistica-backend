@@ -142,8 +142,24 @@ if [ -n "$STACK_ID" ]; then
   
   if [ -n "$DELETE_HTTP_CODE" ] && [ "$DELETE_HTTP_CODE" = "204" ]; then
     echo -e "${GREEN}Stack deletada com sucesso${NC}"
-    echo -e "${YELLOW}Aguardando limpeza completa (15 segundos)...${NC}"
-    sleep 15
+    echo -e "${YELLOW}Aguardando limpeza completa (30 segundos)...${NC}"
+    sleep 30
+    
+    echo -e "${YELLOW}Verificando se a limpeza foi concluída...${NC}"
+    CHECK_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X GET \
+      "${PORTAINER_URL}/api/stacks?filters=%7B%22SwarmID%22%3A%22${PORTAINER_ENDPOINT_ID}%22%7D" \
+      -H "Authorization: Bearer ${JWT_TOKEN}")
+    
+    CHECK_HTTP_CODE=$(echo "$CHECK_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
+    CHECK_BODY=$(echo "$CHECK_RESPONSE" | sed '/HTTP_CODE:/d')
+    
+    if echo "$CHECK_BODY" | jq -e ".[] | select(.Name == \"${PORTAINER_STACK_NAME}\")" > /dev/null 2>&1; then
+      echo -e "${RED}Stack ainda existe após deleção. Aguardando mais 20 segundos...${NC}"
+      sleep 20
+    else
+      echo -e "${GREEN}Limpeza confirmada. Stack não existe mais.${NC}"
+    fi
+    
     STACK_ID=""
   else
     echo -e "${RED}Erro ao deletar stack: Código HTTP ${DELETE_HTTP_CODE:-'N/A'}${NC}"
