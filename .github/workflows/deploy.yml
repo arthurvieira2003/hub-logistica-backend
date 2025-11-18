@@ -152,24 +152,24 @@ jobs:
 
       - name: Create .env file on VPS
         run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << EOF
-            cd /opt/hub-logistica
-            cat > .env << 'ENVEOF'
-              DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}
-              DB_NAME=${{ secrets.DB_NAME }}
-              DB_USER=${{ secrets.DB_USER }}
-              DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-              DB_HOST=${{ secrets.DB_HOST }}
-              DB_DIALECT=${{ secrets.DB_DIALECT }}
-              DB_PORT=${{ secrets.DB_PORT }}
-              JWT_SECRET=${{ secrets.JWT_SECRET }}
-              LOKI_HOST=${{ secrets.LOKI_HOST }}
-              LOKI_PORT=${{ secrets.LOKI_PORT }}
-              SKIP_LOKI_DIAGNOSTICS=${{ secrets.SKIP_LOKI_DIAGNOSTICS }}
-              VPS_IP=${{ secrets.VPS_IP }}
-              API_BASE_URL=${{ secrets.API_BASE_URL }}
-            ENVEOF
-          EOF
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'SSHEOF'
+          cd /opt/hub-logistica
+          cat > .env << 'ENVEOF'
+          DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}
+          DB_NAME=${{ secrets.DB_NAME }}
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_DIALECT=${{ secrets.DB_DIALECT }}
+          DB_PORT=${{ secrets.DB_PORT }}
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          LOKI_HOST=${{ secrets.LOKI_HOST }}
+          LOKI_PORT=${{ secrets.LOKI_PORT }}
+          SKIP_LOKI_DIAGNOSTICS=${{ secrets.SKIP_LOKI_DIAGNOSTICS }}
+          VPS_IP=${{ secrets.VPS_IP }}
+          API_BASE_URL=${{ secrets.API_BASE_URL }}
+          ENVEOF
+          SSHEOF
 
       - name: Execute deploy via Portainer
         run: |
