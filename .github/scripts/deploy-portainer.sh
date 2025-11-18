@@ -134,8 +134,8 @@ if [ -n "$STACK_ID" ]; then
     -H "Authorization: Bearer ${JWT_TOKEN}" \
     -H "Content-Type: application/json" \
     -d "{
-      \"StackFileContent\": \"${COMPOSE_CONTENT}\",
-      \"Env\": ${ENV_JSON}
+      \"stackFileContent\": \"${COMPOSE_CONTENT}\",
+      \"env\": ${ENV_JSON}
     }")
   
   UPDATE_HTTP_CODE=$(echo "$UPDATE_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
@@ -156,22 +156,53 @@ if [ -n "$STACK_ID" ]; then
 else
   echo -e "${YELLOW}Stack não encontrada. Criando nova stack...${NC}"
   
+  # Verificar se o endpoint está em modo Swarm ou Standalone
+  # Primeiro, tentar criar como Swarm (mais comum em produção)
+  echo -e "${YELLOW}Tentando criar stack como Swarm...${NC}"
   CREATE_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X POST \
-    "${PORTAINER_URL}/api/stacks?type=2&method=string&endpointId=${PORTAINER_ENDPOINT_ID}" \
+    "${PORTAINER_URL}/api/stacks/create/swarm/string?endpointId=${PORTAINER_ENDPOINT_ID}" \
     -H "Authorization: Bearer ${JWT_TOKEN}" \
     -H "Content-Type: application/json" \
     -d "{
-      \"Name\": \"${PORTAINER_STACK_NAME}\",
-      \"StackFileContent\": \"${COMPOSE_CONTENT}\",
-      \"Env\": ${ENV_JSON}
+      \"name\": \"${PORTAINER_STACK_NAME}\",
+      \"stackFileContent\": \"${COMPOSE_CONTENT}\",
+      \"env\": ${ENV_JSON},
+      \"fromAppTemplate\": false
     }")
   
   CREATE_HTTP_CODE=$(echo "$CREATE_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
   CREATE_BODY=$(echo "$CREATE_RESPONSE" | sed '/HTTP_CODE:/d')
   
+  # Se falhar, tentar como Standalone
+  if [ -z "$CREATE_HTTP_CODE" ] || [ "$CREATE_HTTP_CODE" != "200" ]; then
+    echo -e "${YELLOW}Tentando criar stack como Standalone...${NC}"
+    CREATE_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X POST \
+      "${PORTAINER_URL}/api/stacks/create/standalone/string?endpointId=${PORTAINER_ENDPOINT_ID}" \
+      -H "Authorization: Bearer ${JWT_TOKEN}" \
+      -H "Content-Type: application/json" \
+      -d "{
+        \"name\": \"${PORTAINER_STACK_NAME}\",
+        \"stackFileContent\": \"${COMPOSE_CONTENT}\",
+        \"env\": ${ENV_JSON},
+        \"fromAppTemplate\": false
+      }")
+    
+    CREATE_HTTP_CODE=$(echo "$CREATE_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
+    CREATE_BODY=$(echo "$CREATE_RESPONSE" | sed '/HTTP_CODE:/d')
+  fi
+  
   if [ -z "$CREATE_HTTP_CODE" ] || [ "$CREATE_HTTP_CODE" != "200" ]; then
     echo -e "${RED}Erro ao criar stack: Código HTTP ${CREATE_HTTP_CODE:-'N/A'}${NC}"
-    echo "Resposta: $CREATE_BODY"
+    echo "Endpoint ID: ${PORTAINER_ENDPOINT_ID}"
+    echo "Stack Name: ${PORTAINER_STACK_NAME}"
+    echo "Resposta completa: $CREATE_RESPONSE"
+    echo "Corpo da resposta: $CREATE_BODY"
+    echo ""
+    echo "Possíveis causas:"
+    echo "  - Endpoint ID incorreto"
+    echo "  - Permissões insuficientes"
+    echo "  - Formato do docker-compose.yml inválido"
+    echo "  - Verifique a documentação da API: https://app.swaggerhub.com/apis/portainer/portainer-ce/2.33.3"
     exit 1
   fi
   
