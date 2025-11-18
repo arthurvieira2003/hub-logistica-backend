@@ -78,11 +78,16 @@ if [ ! -f "$COMPOSE_FILE" ]; then
   exit 1
 fi
 
-if base64 --help 2>&1 | grep -q "wrap"; then
-  COMPOSE_CONTENT=$(cat "$COMPOSE_FILE" | base64 -w 0)
-else
-  COMPOSE_CONTENT=$(cat "$COMPOSE_FILE" | base64 | tr -d '\n')
-fi
+COMPOSE_CONTENT=""
+while IFS= read -r line || [ -n "$line" ]; do
+  line=$(echo "$line" | sed 's/\\/\\\\/g')
+  line=$(echo "$line" | sed 's/"/\\"/g')
+  if [ -z "$COMPOSE_CONTENT" ]; then
+    COMPOSE_CONTENT="$line"
+  else
+    COMPOSE_CONTENT="$COMPOSE_CONTENT\\n$line"
+  fi
+done < "$COMPOSE_FILE"
 
 ENV_JSON="[]"
 if [ ${#ENV_ARRAY[@]} -gt 0 ]; then
@@ -156,8 +161,6 @@ if [ -n "$STACK_ID" ]; then
 else
   echo -e "${YELLOW}Stack não encontrada. Criando nova stack...${NC}"
   
-  # Verificar se o endpoint está em modo Swarm ou Standalone
-  # Primeiro, tentar criar como Swarm (mais comum em produção)
   echo -e "${YELLOW}Tentando criar stack como Swarm...${NC}"
   CREATE_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X POST \
     "${PORTAINER_URL}/api/stacks/create/swarm/string?endpointId=${PORTAINER_ENDPOINT_ID}" \
@@ -173,7 +176,6 @@ else
   CREATE_HTTP_CODE=$(echo "$CREATE_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
   CREATE_BODY=$(echo "$CREATE_RESPONSE" | sed '/HTTP_CODE:/d')
   
-  # Se falhar, tentar como Standalone
   if [ -z "$CREATE_HTTP_CODE" ] || [ "$CREATE_HTTP_CODE" != "200" ]; then
     echo -e "${YELLOW}Tentando criar stack como Standalone...${NC}"
     CREATE_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X POST \
