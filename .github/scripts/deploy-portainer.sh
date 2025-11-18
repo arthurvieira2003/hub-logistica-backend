@@ -134,6 +134,26 @@ fi
 if [ -n "$STACK_ID" ]; then
   echo -e "${YELLOW}Stack encontrada (ID: $STACK_ID). Atualizando...${NC}"
   
+  # Primeiro, parar a stack para remover os containers
+  echo -e "${YELLOW}Parando a stack para remover containers...${NC}"
+  STOP_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X POST \
+    "${PORTAINER_URL}/api/stacks/${STACK_ID}/stop?endpointId=${PORTAINER_ENDPOINT_ID}" \
+    -H "Authorization: Bearer ${JWT_TOKEN}")
+  
+  STOP_HTTP_CODE=$(echo "$STOP_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
+  
+  if [ -n "$STOP_HTTP_CODE" ] && [ "$STOP_HTTP_CODE" = "200" ]; then
+    echo -e "${GREEN}Stack parada com sucesso${NC}"
+    # Aguardar remoção completa dos containers
+    echo -e "${YELLOW}Aguardando remoção dos containers (10 segundos)...${NC}"
+    sleep 10
+  else
+    echo -e "${YELLOW}Aviso: Não foi possível parar a stack (código: ${STOP_HTTP_CODE:-'N/A'})${NC}"
+    echo -e "${YELLOW}Tentando atualizar mesmo assim...${NC}"
+  fi
+  
+  # Agora atualizar a stack
+  echo -e "${YELLOW}Atualizando a stack...${NC}"
   UPDATE_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X PUT \
     "${PORTAINER_URL}/api/stacks/${STACK_ID}?endpointId=${PORTAINER_ENDPOINT_ID}" \
     -H "Authorization: Bearer ${JWT_TOKEN}" \
