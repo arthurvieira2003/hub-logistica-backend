@@ -132,58 +132,29 @@ else
 fi
 
 if [ -n "$STACK_ID" ]; then
-  echo -e "${YELLOW}Stack encontrada (ID: $STACK_ID). Atualizando...${NC}"
+  echo -e "${YELLOW}Stack encontrada (ID: $STACK_ID). Deletando para recriar...${NC}"
   
-  # Primeiro, parar a stack para remover os containers
-  echo -e "${YELLOW}Parando a stack para remover containers...${NC}"
-  STOP_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X POST \
-    "${PORTAINER_URL}/api/stacks/${STACK_ID}/stop?endpointId=${PORTAINER_ENDPOINT_ID}" \
+  DELETE_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X DELETE \
+    "${PORTAINER_URL}/api/stacks/${STACK_ID}?endpointId=${PORTAINER_ENDPOINT_ID}" \
     -H "Authorization: Bearer ${JWT_TOKEN}")
   
-  STOP_HTTP_CODE=$(echo "$STOP_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
+  DELETE_HTTP_CODE=$(echo "$DELETE_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
   
-  if [ -n "$STOP_HTTP_CODE" ] && [ "$STOP_HTTP_CODE" = "200" ]; then
-    echo -e "${GREEN}Stack parada com sucesso${NC}"
-    # Aguardar remoção completa dos containers
-    echo -e "${YELLOW}Aguardando remoção dos containers (10 segundos)...${NC}"
-    sleep 10
+  if [ -n "$DELETE_HTTP_CODE" ] && [ "$DELETE_HTTP_CODE" = "204" ]; then
+    echo -e "${GREEN}Stack deletada com sucesso${NC}"
+    echo -e "${YELLOW}Aguardando limpeza completa (15 segundos)...${NC}"
+    sleep 15
+    STACK_ID=""
   else
-    echo -e "${YELLOW}Aviso: Não foi possível parar a stack (código: ${STOP_HTTP_CODE:-'N/A'})${NC}"
-    echo -e "${YELLOW}Tentando atualizar mesmo assim...${NC}"
-  fi
-  
-  # Agora atualizar a stack
-  echo -e "${YELLOW}Atualizando a stack...${NC}"
-  UPDATE_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X PUT \
-    "${PORTAINER_URL}/api/stacks/${STACK_ID}?endpointId=${PORTAINER_ENDPOINT_ID}" \
-    -H "Authorization: Bearer ${JWT_TOKEN}" \
-    -H "Content-Type: application/json" \
-    -d "{
-      \"stackFileContent\": \"${COMPOSE_CONTENT}\",
-      \"env\": ${ENV_JSON},
-      \"prune\": true
-    }")
-  
-  UPDATE_HTTP_CODE=$(echo "$UPDATE_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
-  UPDATE_BODY=$(echo "$UPDATE_RESPONSE" | sed '/HTTP_CODE:/d')
-  
-  if [ -z "$UPDATE_HTTP_CODE" ] || [ "$UPDATE_HTTP_CODE" != "200" ]; then
-    echo -e "${RED}Erro ao atualizar stack: Código HTTP ${UPDATE_HTTP_CODE:-'N/A'}${NC}"
-    echo "Resposta: $UPDATE_BODY"
+    echo -e "${RED}Erro ao deletar stack: Código HTTP ${DELETE_HTTP_CODE:-'N/A'}${NC}"
+    DELETE_BODY=$(echo "$DELETE_RESPONSE" | sed '/HTTP_CODE:/d')
+    echo "Resposta: $DELETE_BODY"
     exit 1
   fi
-  
-  if echo "$UPDATE_BODY" | grep -qi "error"; then
-    echo -e "${RED}Erro ao atualizar stack: $UPDATE_BODY${NC}"
-    exit 1
-  fi
-  
-  echo -e "${GREEN}Stack atualizada com sucesso!${NC}"
-else
-  echo -e "${YELLOW}Stack não encontrada. Criando nova stack...${NC}"
 fi
 
 if [ -z "$STACK_ID" ]; then
+  echo -e "${YELLOW}Criando stack...${NC}"
   echo -e "${YELLOW}Tentando criar stack como Swarm...${NC}"
   CREATE_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X POST \
     "${PORTAINER_URL}/api/stacks/create/swarm/string?endpointId=${PORTAINER_ENDPOINT_ID}" \
