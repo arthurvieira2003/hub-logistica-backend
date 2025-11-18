@@ -47,7 +47,7 @@ fi
 
 AUTH_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X POST "${PORTAINER_URL}/api/auth" \
   -H "Content-Type: application/json" \
-  -d "{\"Username\":\"${PORTAINER_USERNAME}\",\"Password\":\"${PORTAINER_PASSWORD}\"}")
+  -d "{\"username\":\"${PORTAINER_USERNAME}\",\"password\":\"${PORTAINER_PASSWORD}\"}")
 
 HTTP_CODE=$(echo "$AUTH_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
 AUTH_BODY=$(echo "$AUTH_RESPONSE" | sed '/HTTP_CODE:/d')
@@ -101,7 +101,7 @@ fi
 
 echo -e "${YELLOW}Verificando se a stack existe...${NC}"
 STACKS_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X GET \
-  "${PORTAINER_URL}/api/stacks?filters={\"EndpointID\":${PORTAINER_ENDPOINT_ID}}" \
+  "${PORTAINER_URL}/api/stacks" \
   -H "Authorization: Bearer ${JWT_TOKEN}")
 
 STACKS_HTTP_CODE=$(echo "$STACKS_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
@@ -113,13 +113,17 @@ if [ -z "$STACKS_HTTP_CODE" ] || [ "$STACKS_HTTP_CODE" != "200" ]; then
   exit 1
 fi
 
-STACK_ID=$(echo "$STACKS_BODY" | grep -o "\"Id\":[0-9]*" | head -1 | cut -d':' -f2)
-
-if [ -z "$STACK_ID" ]; then
-  STACK_NAME_MATCH=$(echo "$STACKS_BODY" | grep -i "\"Name\":\"${PORTAINER_STACK_NAME}\"" -A 5 | grep -o "\"Id\":[0-9]*" | head -1 | cut -d':' -f2)
-  if [ -n "$STACK_NAME_MATCH" ]; then
-    STACK_ID="$STACK_NAME_MATCH"
-  fi
+if command -v jq &> /dev/null; then
+  STACK_ID=$(echo "$STACKS_BODY" | jq -r ".[] | select(.EndpointId == ${PORTAINER_ENDPOINT_ID} and .Name == \"${PORTAINER_STACK_NAME}\") | .Id" | head -1)
+else
+  for id in $(echo "$STACKS_BODY" | grep -o '"Id":[0-9]*' | cut -d':' -f2); do
+    stack_section=$(echo "$STACKS_BODY" | grep -A 30 "\"Id\":$id" | head -30)
+    if echo "$stack_section" | grep -qi "\"Name\":\"${PORTAINER_STACK_NAME}\"" && \
+       echo "$stack_section" | grep -q "\"EndpointId\":${PORTAINER_ENDPOINT_ID}"; then
+      STACK_ID=$id
+      break
+    fi
+  done
 fi
 
 if [ -n "$STACK_ID" ]; then
@@ -180,4 +184,3 @@ else
 fi
 
 echo -e "${GREEN}Deploy concluído com sucesso via Portainer!${NC}"
-
