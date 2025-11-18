@@ -134,23 +134,6 @@ fi
 if [ -n "$STACK_ID" ]; then
   echo -e "${YELLOW}Stack encontrada (ID: $STACK_ID). Atualizando...${NC}"
   
-  # Parar a stack antes de atualizar para evitar conflitos de container
-  echo -e "${YELLOW}Parando a stack...${NC}"
-  STOP_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X POST \
-    "${PORTAINER_URL}/api/stacks/${STACK_ID}/stop?endpointId=${PORTAINER_ENDPOINT_ID}" \
-    -H "Authorization: Bearer ${JWT_TOKEN}")
-  
-  STOP_HTTP_CODE=$(echo "$STOP_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
-  
-  if [ -n "$STOP_HTTP_CODE" ] && [ "$STOP_HTTP_CODE" = "200" ]; then
-    echo -e "${GREEN}Stack parada com sucesso${NC}"
-    # Aguardar alguns segundos para garantir que os containers foram removidos
-    sleep 3
-  else
-    echo -e "${YELLOW}Aviso: Não foi possível parar a stack (código: ${STOP_HTTP_CODE:-'N/A'})${NC}"
-    echo -e "${YELLOW}Continuando com a atualização...${NC}"
-  fi
-  
   UPDATE_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X PUT \
     "${PORTAINER_URL}/api/stacks/${STACK_ID}?endpointId=${PORTAINER_ENDPOINT_ID}" \
     -H "Authorization: Bearer ${JWT_TOKEN}" \
@@ -158,7 +141,6 @@ if [ -n "$STACK_ID" ]; then
     -d "{
       \"stackFileContent\": \"${COMPOSE_CONTENT}\",
       \"env\": ${ENV_JSON},
-      \"pullImage\": true,
       \"prune\": true
     }")
   
@@ -179,7 +161,9 @@ if [ -n "$STACK_ID" ]; then
   echo -e "${GREEN}Stack atualizada com sucesso!${NC}"
 else
   echo -e "${YELLOW}Stack não encontrada. Criando nova stack...${NC}"
-  
+fi
+
+if [ -z "$STACK_ID" ]; then
   echo -e "${YELLOW}Tentando criar stack como Swarm...${NC}"
   CREATE_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X POST \
     "${PORTAINER_URL}/api/stacks/create/swarm/string?endpointId=${PORTAINER_ENDPOINT_ID}" \
