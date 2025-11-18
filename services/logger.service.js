@@ -136,6 +136,15 @@ class LokiLogger {
       return;
     }
 
+    // Se Loki não estiver habilitado (URL vazia), não tentar enviar
+    if (
+      !config.loki.enabled ||
+      !config.loki.url ||
+      config.loki.url.trim() === ""
+    ) {
+      return;
+    }
+
     const streams = {};
 
     for (const log of logs) {

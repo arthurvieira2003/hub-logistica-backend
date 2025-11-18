@@ -4,6 +4,11 @@ const axios = require("axios");
 
 async function testLokiConnection() {
   try {
+    // Se Loki não estiver habilitado, pular o teste
+    if (!config.loki.enabled || !config.loki.url || config.loki.url.trim() === "") {
+      return null;
+    }
+
     const logger = getLogger();
     const lokiUrl = config.loki.url;
     const readyUrl = `http://${config.loki.host}:${config.loki.port}/ready`;
