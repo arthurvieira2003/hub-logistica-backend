@@ -115,11 +115,17 @@ class DeployPortainer {
       const response = await axios(listContainersConfig);
       const containers = response.data;
 
-      const targetContainer = containers.find(
-        (container) =>
-          container.Image === this.Imagem ||
-          container.Names?.some((name) => name.includes(`/${this.NomeImagem}`))
+      let targetContainer = containers.find((container) =>
+        container.Names?.some(
+          (name) => name === `/${this.NomeImagem}` || name === this.NomeImagem
+        )
       );
+
+      if (!targetContainer) {
+        targetContainer = containers.find(
+          (container) => container.Image === this.Imagem
+        );
+      }
 
       if (targetContainer) {
         console.log(
@@ -303,18 +309,77 @@ class DeployPortainer {
   };
 
   criarContainer = async () => {
+    try {
+      const listContainersConfig = {
+        method: "get",
+        url:
+          this.portainerUrl +
+          `/endpoints/${this.endpointId}/docker/containers/json?all=true`,
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+        },
+        httpsAgent: agent,
+      };
+      const response = await axios(listContainersConfig);
+      const containers = response.data;
+
+      const existingContainer = containers.find((container) =>
+        container.Names?.some(
+          (name) => name === `/${this.NomeImagem}` || name === this.NomeImagem
+        )
+      );
+
+      if (existingContainer) {
+        console.log(
+          `⚠ Container com nome '${this.NomeImagem}' já existe. Deletando...`
+        );
+        try {
+          if (existingContainer.State === "running") {
+            await axios({
+              method: "post",
+              url:
+                this.portainerUrl +
+                `/endpoints/${this.endpointId}/docker/containers/${existingContainer.Id}/stop`,
+              headers: {
+                Authorization: `Bearer ${this.token}`,
+              },
+              httpsAgent: agent,
+            });
+          }
+          await axios({
+            method: "delete",
+            url:
+              this.portainerUrl +
+              `/endpoints/${this.endpointId}/docker/containers/${existingContainer.Id}?force=true`,
+            headers: {
+              Authorization: `Bearer ${this.token}`,
+            },
+            httpsAgent: agent,
+          });
+          console.log(`✓ Container existente deletado.`);
+        } catch (err) {
+          console.error(`Erro ao deletar container existente: ${err.message}`);
+          throw new Error(
+            `Falha ao remover container existente: ${err.message}`
+          );
+        }
+      }
+    } catch (err) {
+      console.error(`Erro ao verificar containers existentes: ${err.message}`);
+      throw err;
+    }
+
     const config = {
       method: "post",
       maxBodyLength: Infinity,
       url:
         this.portainerUrl +
-        `/endpoints/${this.endpointId}/docker/containers/create`,
+        `/endpoints/${this.endpointId}/docker/containers/create?name=${this.NomeImagem}`,
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${this.token}`,
       },
       data: {
-        name: this.NomeImagem,
         Image: this.Imagem,
         ExposedPorts: { "4010/tcp": {} },
         HostConfig: {
@@ -349,13 +414,21 @@ class DeployPortainer {
     try {
       const response = await axios(config);
       this.idContainer = response.data.Id;
-      console.log("Criou o container com sucesso!");
+      console.log(
+        `✓ Container '${
+          this.NomeImagem
+        }' criado com sucesso (ID: ${this.idContainer.substring(0, 12)})`
+      );
     } catch (err) {
       console.error(
         "Erro ao criar o container:",
         err.response?.data || err.message
       );
-      throw new Error("Erro ao criar o container");
+      throw new Error(
+        `Erro ao criar o container: ${
+          err.response?.data?.message || err.message
+        }`
+      );
     }
   };
 
