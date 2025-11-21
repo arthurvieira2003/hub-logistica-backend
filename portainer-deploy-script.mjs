@@ -37,13 +37,12 @@ class DeployPortainer {
 
   executaGitOps = async () => {
     await this.portainerLogin();
-    await this.pararEDeletarContainerPorImagem();
-    await this.deletarContainerParados();
+    await this.pararEDeletarContainerEspecifico();
 
     await this.pullarImagemDockerHub();
     await this.criarContainer();
     await this.rodarContainer();
-    this.deletarImagensParadas();
+    await this.limparImagensAntigas();
   };
 
   portainerLogin = async () => {
@@ -88,14 +87,21 @@ class DeployPortainer {
     };
     try {
       const response = await axios(config);
-      console.log("Puxou a imagem do dockerhub com sucesso!");
+      console.log("Puxou a imagem do dockerhub com sucesso: ", response.data);
     } catch (err) {
-      throw new Error("Erro ao puxar a imagem do Docker Hub");
+      throw new Error(
+        "Erro ao puxar a imagem do Docker Hub: " +
+          (err.response?.data?.message || err.message)
+      );
     }
   };
 
-  pararEDeletarContainerPorImagem = async () => {
+  pararEDeletarContainerEspecifico = async () => {
     try {
+      console.log(
+        `Buscando container específico: ${this.NomeImagem} (${this.Imagem})`
+      );
+
       const listContainersConfig = {
         method: "get",
         url:
@@ -112,32 +118,44 @@ class DeployPortainer {
       const targetContainer = containers.find(
         (container) =>
           container.Image === this.Imagem ||
-          container.Names?.some((name) => name.includes(this.NomeImagem))
+          container.Names?.some((name) => name.includes(`/${this.NomeImagem}`))
       );
 
       if (targetContainer) {
-        // Parar o container se estiver rodando
-        try {
-          const stopContainerConfig = {
-            method: "post",
-            url:
-              this.portainerUrl +
-              `/endpoints/${this.endpointId}/docker/containers/${targetContainer.Id}/stop`,
-            headers: {
-              Authorization: `Bearer ${this.token}`,
-            },
-            httpsAgent: agent,
-          };
-          await axios(stopContainerConfig);
-          console.log(`Container ${targetContainer.Id} parado com sucesso.`);
-        } catch (err) {
-          // Container pode já estar parado
-          console.log(
-            "Container já estava parado ou erro ao parar (continuando...)"
-          );
+        console.log(
+          `Container encontrado: ${targetContainer.Id.substring(0, 12)} (${
+            targetContainer.Names?.[0] || "sem nome"
+          })`
+        );
+
+        if (targetContainer.State === "running") {
+          try {
+            const stopContainerConfig = {
+              method: "post",
+              url:
+                this.portainerUrl +
+                `/endpoints/${this.endpointId}/docker/containers/${targetContainer.Id}/stop`,
+              headers: {
+                Authorization: `Bearer ${this.token}`,
+              },
+              httpsAgent: agent,
+            };
+            await axios(stopContainerConfig);
+            console.log(
+              `✓ Container ${targetContainer.Id.substring(
+                0,
+                12
+              )} parado com sucesso.`
+            );
+          } catch (err) {
+            console.log(
+              `Container já estava parado ou erro ao parar: ${err.message}`
+            );
+          }
+        } else {
+          console.log(`ℹ Container já estava parado.`);
         }
 
-        // Deletar o container
         try {
           const deleteContainerConfig = {
             method: "delete",
@@ -150,57 +168,137 @@ class DeployPortainer {
             httpsAgent: agent,
           };
           await axios(deleteContainerConfig);
-          console.log(`Container ${targetContainer.Id} deletado com sucesso.`);
+          console.log(
+            `Container ${targetContainer.Id.substring(
+              0,
+              12
+            )} deletado com sucesso.`
+          );
         } catch (err) {
-          console.error("Erro ao deletar o container:", err.message);
+          console.error(`Erro ao deletar o container: ${err.message}`);
+          throw new Error(
+            `Falha ao deletar container existente: ${err.message}`
+          );
         }
       } else {
         console.log(
-          "Nenhum container encontrado com a imagem ou nome especificado."
+          `ℹ Nenhum container existente encontrado para ${this.NomeImagem}. Criando novo container.`
         );
       }
     } catch (error) {
-      console.error("Erro ao parar/deletar o container:", error);
-    }
-  };
-  deletarContainerParados = async () => {
-    const config = {
-      method: "post",
-      maxBodyLength: Infinity,
-      url:
-        this.portainerUrl +
-        `/endpoints/${this.endpointId}/docker/containers/prune`,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.token}`,
-      },
-      httpsAgent: agent,
-    };
-    try {
-      const response = await axios(config);
-      console.log("Deletou containers parados com sucesso");
-    } catch (err) {
-      throw new Error("Erro ao deletar os containers parados");
+      console.error(`Erro ao buscar/deletar container: ${error.message}`);
+      throw error;
     }
   };
 
-  deletarImagensParadas = async () => {
-    const config = {
-      method: "post",
-      maxBodyLength: Infinity,
-      url:
-        this.portainerUrl + `/endpoints/${this.endpointId}/docker/images/prune`,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.token}`,
-      },
-      httpsAgent: agent,
-    };
+  limparImagensAntigas = async () => {
     try {
-      const response = await axios(config);
-      console.log("Deletou images parados com sucesso");
-    } catch (err) {
-      throw new Error("Erro ao deletar os images parados");
+      console.log("Iniciando limpeza de imagens antigas...");
+
+      const listImagesConfig = {
+        method: "get",
+        url:
+          this.portainerUrl +
+          `/endpoints/${this.endpointId}/docker/images/json`,
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+        },
+        httpsAgent: agent,
+      };
+      const imagesResponse = await axios(listImagesConfig);
+      const images = imagesResponse.data;
+
+      const listContainersConfig = {
+        method: "get",
+        url:
+          this.portainerUrl +
+          `/endpoints/${this.endpointId}/docker/containers/json?all=true`,
+        headers: {
+          Authorization: `Bearer ${this.token}`,
+        },
+        httpsAgent: agent,
+      };
+      const containersResponse = await axios(listContainersConfig);
+      const containers = containersResponse.data;
+      const imagesInUse = new Set(
+        containers.map((c) => c.ImageID || c.Image).filter(Boolean)
+      );
+
+      const imageRepo = this.Imagem.split(":")[0];
+      const oldImages = images.filter((img) => {
+        const imageId = img.Id || img.RepoTags?.[0] || img.RepoDigests?.[0];
+
+        if (imagesInUse.has(imageId)) {
+          return false;
+        }
+
+        const hasMatchingRepo =
+          (img.RepoTags &&
+            img.RepoTags.some((tag) => tag.startsWith(imageRepo))) ||
+          (img.RepoDigests &&
+            img.RepoDigests.some((digest) => digest.startsWith(imageRepo)));
+
+        if (!hasMatchingRepo) {
+          return false;
+        }
+
+        const isCurrentImage =
+          (img.RepoTags && img.RepoTags.includes(this.Imagem)) ||
+          (img.RepoTags && img.RepoTags.some((tag) => tag === this.Imagem));
+
+        return !isCurrentImage;
+      });
+
+      if (oldImages.length > 0) {
+        console.log(
+          `Encontradas ${oldImages.length} imagem(ns) antiga(s) para limpeza:`
+        );
+
+        let removedCount = 0;
+        for (const image of oldImages) {
+          try {
+            const imageId =
+              image.Id || image.RepoTags?.[0] || image.RepoDigests?.[0];
+            const imageName =
+              image.RepoTags?.[0] || imageId.substring(0, 12) || "sem nome";
+
+            console.log(`  - Removendo: ${imageName}`);
+
+            const deleteImageConfig = {
+              method: "delete",
+              url:
+                this.portainerUrl +
+                `/endpoints/${this.endpointId}/docker/images/${imageId}?force=true&noprune=false`,
+              headers: {
+                Authorization: `Bearer ${this.token}`,
+              },
+              httpsAgent: agent,
+            };
+            await axios(deleteImageConfig);
+            removedCount++;
+            console.log(`  Imagem removida: ${imageName}`);
+          } catch (err) {
+            console.log(
+              `  Não foi possível remover imagem: ${
+                err.response?.data?.message || err.message
+              }`
+            );
+          }
+        }
+
+        console.log(
+          `Limpeza concluída: ${removedCount}/${oldImages.length} imagem(ns) removida(s).`
+        );
+      } else {
+        console.log("ℹ Nenhuma imagem antiga encontrada para limpeza.");
+      }
+    } catch (error) {
+      console.error(
+        `Aviso: Erro ao limpar imagens antigas (continuando...): ${error.message}`
+      );
+      if (error.response?.data) {
+        console.error(`  Detalhes: ${JSON.stringify(error.response.data)}`);
+      }
     }
   };
 
@@ -277,17 +375,19 @@ class DeployPortainer {
 
     try {
       const response = await axios(config);
-      console.log("Rodou o container com sucesso!");
+      console.log("Rodou o container com sucesso: ", response.data);
     } catch (err) {
       console.error(
         "Erro ao rodar o container:",
         err.response?.data || err.message
       );
-      throw new Error("Erro ao rodar o container");
+      throw new Error(
+        "Erro ao rodar o container: " +
+          (err.response?.data?.message || err.message)
+      );
     }
   };
 }
 
 const deploy = new DeployPortainer();
 deploy.executaGitOps();
-

@@ -99,4 +99,4 @@ jobs:
 
       - name: Verify deployment
         run: |
-          echo "✅ Deploy do backend concluído via Portainer API!"
+          echo "Deploy do backend concluído"
