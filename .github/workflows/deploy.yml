@@ -99,10 +99,10 @@ jobs:
           cache-from: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/hub-logistica-frontend:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKER_HUB_USERNAME }}/hub-logistica-frontend:buildcache,mode=max
 
-  deploy:
-    name: Deploy to VPS via Portainer
+  deploy-backend:
+    name: Deploy Backend to VPS via Portainer
     runs-on: ubuntu-latest
-    needs: [build-backend, build-frontend]
+    needs: [build-backend]
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
 
     steps:
@@ -111,94 +111,35 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_branch || github.ref || 'main' }}
 
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.9.0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          ssh-private-key: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          node-version: "18"
+          cache: "npm"
 
-      - name: Add VPS to known hosts
-        run: |
-          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Create directory on VPS
-        run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "mkdir -p /opt/hub-logistica && chmod 755 /opt/hub-logistica"
-
-      - name: Copy docker-compose to VPS
-        run: |
-          scp -r docker-compose.yml ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/hub-logistica/
-
-      - name: Copy deploy script to VPS
-        run: |
-          scp -r .github/scripts/deploy-portainer.sh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/hub-logistica/
-
-      - name: Detect VPS IP and create .env file
-        run: |
-          VPS_IP_VALUE="${{ secrets.VPS_IP }}"
-          if [ -z "$VPS_IP_VALUE" ] || [ "$VPS_IP_VALUE" = "" ]; then
-            VPS_IP_VALUE="${{ secrets.VPS_HOST }}"
-            echo "⚠️  VPS_IP não definido no secret, usando VPS_HOST: $VPS_IP_VALUE"
-          else
-            echo "✅ Usando VPS_IP do secret: $VPS_IP_VALUE"
-          fi
-
-          API_BASE_URL_VALUE="${{ secrets.API_BASE_URL }}"
-          if [ -z "$API_BASE_URL_VALUE" ] || [ "$API_BASE_URL_VALUE" = "" ]; then
-            API_BASE_URL_VALUE="http://${VPS_IP_VALUE}:4010"
-            echo "✅ API_BASE_URL gerado automaticamente: $API_BASE_URL_VALUE"
-          else
-            echo "✅ Usando API_BASE_URL do secret: $API_BASE_URL_VALUE"
-          fi
-
-          LOKI_HOST_VALUE="${{ secrets.LOKI_HOST }}"
-          LOKI_SERVICE_NAME="${{ secrets.LOKI_SERVICE_NAME }}"
-
-          if [ -n "$LOKI_SERVICE_NAME" ] && [ "$LOKI_SERVICE_NAME" != "" ]; then
-            LOKI_HOST_VALUE="$LOKI_SERVICE_NAME"
-            echo "✅ Usando nome do serviço Loki para comunicação interna: $LOKI_HOST_VALUE"
-          elif [ -z "$LOKI_HOST_VALUE" ] || [ "$LOKI_HOST_VALUE" = "" ]; then
-            echo "⚠️  LOKI_HOST não definido, Loki será desabilitado"
-          else
-            echo "✅ Usando LOKI_HOST do secret: $LOKI_HOST_VALUE"
-          fi
-
-          cat > .env << EOF
-          DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}
-          DB_NAME=${{ secrets.DB_NAME }}
-          DB_USER=${{ secrets.DB_USER }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-          DB_HOST=${{ secrets.DB_HOST }}
-          DB_DIALECT=${{ secrets.DB_DIALECT }}
-          DB_PORT=${{ secrets.DB_PORT }}
-          JWT_SECRET=${{ secrets.JWT_SECRET }}
-          LOKI_HOST=${LOKI_HOST_VALUE}
-          LOKI_PORT=${{ secrets.LOKI_PORT }}
-          SKIP_LOKI_DIAGNOSTICS=${{ secrets.SKIP_LOKI_DIAGNOSTICS }}
-          VPS_IP=${VPS_IP_VALUE}
-          API_BASE_URL=${API_BASE_URL_VALUE}
-          EOF
-
-          scp .env ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/hub-logistica/.env
-
-          echo "✅ Arquivo .env criado e copiado para a VPS"
-          echo "VPS_IP=${VPS_IP_VALUE}"
-          echo "API_BASE_URL=${API_BASE_URL_VALUE}"
-          echo "LOKI_HOST=${LOKI_HOST_VALUE}"
-
-      - name: Execute deploy via Portainer
-        run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << EOF
-            cd /opt/hub-logistica
-            chmod +x deploy-portainer.sh
-            export PORTAINER_URL="${{ secrets.PORTAINER_URL }}"
-            export PORTAINER_USERNAME="${{ secrets.PORTAINER_USERNAME }}"
-            export PORTAINER_PASSWORD="${{ secrets.PORTAINER_PASSWORD }}"
-            export PORTAINER_ENDPOINT_ID="${{ secrets.PORTAINER_ENDPOINT_ID }}"
-            export PORTAINER_STACK_NAME="${{ secrets.PORTAINER_STACK_NAME }}"
-            bash deploy-portainer.sh
-          EOF
+      - name: Deploy backend via Portainer script
+        env:
+          PORTAINER_URL: ${{ secrets.PORTAINER_URL }}
+          PORTAINER_ENDPOINT_ID: ${{ secrets.PORTAINER_ENDPOINT_ID }}
+          PORTAINER_USERNAME: ${{ secrets.PORTAINER_USERNAME }}
+          PORTAINER_PASSWORD: ${{ secrets.PORTAINER_PASSWORD }}
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+          DOCKER_AUTH: ${{ secrets.DOCKER_AUTH }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_DIALECT: ${{ secrets.DB_DIALECT }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          LOKI_HOST: ${{ secrets.LOKI_HOST }}
+          LOKI_PORT: ${{ secrets.LOKI_PORT }}
+          SKIP_LOKI_DIAGNOSTICS: ${{ secrets.SKIP_LOKI_DIAGNOSTICS }}
+        run: node portainer-deploy-script.js
 
       - name: Verify deployment
         run: |
-          echo "✅ Deploy concluído via Portainer API!"
-          echo "Verifique o status da stack no Portainer: ${{ secrets.PORTAINER_URL }}"
+          echo "✅ Deploy do backend concluído via Portainer API!"
