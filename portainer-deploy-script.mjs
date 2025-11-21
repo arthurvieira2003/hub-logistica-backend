@@ -290,3 +290,4 @@ class DeployPortainer {
 
 const deploy = new DeployPortainer();
 deploy.executaGitOps();
+

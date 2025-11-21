@@ -95,7 +95,7 @@ jobs:
           LOKI_HOST: ${{ secrets.LOKI_HOST }}
           LOKI_PORT: ${{ secrets.LOKI_PORT }}
           SKIP_LOKI_DIAGNOSTICS: ${{ secrets.SKIP_LOKI_DIAGNOSTICS }}
-        run: node portainer-deploy-script.js
+        run: node portainer-deploy-script.mjs
 
       - name: Verify deployment
         run: |
