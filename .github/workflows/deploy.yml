@@ -134,7 +134,6 @@ jobs:
 
       - name: Detect VPS IP and create .env file
         run: |
-          # Usa VPS_IP do secret se disponível, caso contrário usa VPS_HOST
           VPS_IP_VALUE="${{ secrets.VPS_IP }}"
           if [ -z "$VPS_IP_VALUE" ] || [ "$VPS_IP_VALUE" = "" ]; then
             VPS_IP_VALUE="${{ secrets.VPS_HOST }}"
@@ -143,7 +142,6 @@ jobs:
             echo "✅ Usando VPS_IP do secret: $VPS_IP_VALUE"
           fi
 
-          # Gera API_BASE_URL automaticamente se não estiver definido
           API_BASE_URL_VALUE="${{ secrets.API_BASE_URL }}"
           if [ -z "$API_BASE_URL_VALUE" ] || [ "$API_BASE_URL_VALUE" = "" ]; then
             API_BASE_URL_VALUE="http://${VPS_IP_VALUE}:4010"
@@ -152,7 +150,18 @@ jobs:
             echo "✅ Usando API_BASE_URL do secret: $API_BASE_URL_VALUE"
           fi
 
-          # Cria arquivo .env localmente
+          LOKI_HOST_VALUE="${{ secrets.LOKI_HOST }}"
+          LOKI_SERVICE_NAME="${{ secrets.LOKI_SERVICE_NAME }}"
+
+          if [ -n "$LOKI_SERVICE_NAME" ] && [ "$LOKI_SERVICE_NAME" != "" ]; then
+            LOKI_HOST_VALUE="$LOKI_SERVICE_NAME"
+            echo "✅ Usando nome do serviço Loki para comunicação interna: $LOKI_HOST_VALUE"
+          elif [ -z "$LOKI_HOST_VALUE" ] || [ "$LOKI_HOST_VALUE" = "" ]; then
+            echo "⚠️  LOKI_HOST não definido, Loki será desabilitado"
+          else
+            echo "✅ Usando LOKI_HOST do secret: $LOKI_HOST_VALUE"
+          fi
+
           cat > .env << EOF
           DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}
           DB_NAME=${{ secrets.DB_NAME }}
@@ -162,19 +171,19 @@ jobs:
           DB_DIALECT=${{ secrets.DB_DIALECT }}
           DB_PORT=${{ secrets.DB_PORT }}
           JWT_SECRET=${{ secrets.JWT_SECRET }}
-          LOKI_HOST=${{ secrets.LOKI_HOST }}
+          LOKI_HOST=${LOKI_HOST_VALUE}
           LOKI_PORT=${{ secrets.LOKI_PORT }}
           SKIP_LOKI_DIAGNOSTICS=${{ secrets.SKIP_LOKI_DIAGNOSTICS }}
           VPS_IP=${VPS_IP_VALUE}
           API_BASE_URL=${API_BASE_URL_VALUE}
           EOF
 
-          # Copia o arquivo .env para a VPS
           scp .env ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/hub-logistica/.env
 
           echo "✅ Arquivo .env criado e copiado para a VPS"
           echo "VPS_IP=${VPS_IP_VALUE}"
           echo "API_BASE_URL=${API_BASE_URL_VALUE}"
+          echo "LOKI_HOST=${LOKI_HOST_VALUE}"
 
       - name: Execute deploy via Portainer
         run: |
