@@ -132,11 +132,28 @@ jobs:
         run: |
           scp -r .github/scripts/deploy-portainer.sh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/hub-logistica/
 
-      - name: Create .env file on VPS
+      - name: Detect VPS IP and create .env file
         run: |
-          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'SSHEOF'
-          cd /opt/hub-logistica
-          cat > .env << 'ENVEOF'
+          # Usa VPS_IP do secret se disponível, caso contrário usa VPS_HOST
+          VPS_IP_VALUE="${{ secrets.VPS_IP }}"
+          if [ -z "$VPS_IP_VALUE" ] || [ "$VPS_IP_VALUE" = "" ]; then
+            VPS_IP_VALUE="${{ secrets.VPS_HOST }}"
+            echo "⚠️  VPS_IP não definido no secret, usando VPS_HOST: $VPS_IP_VALUE"
+          else
+            echo "✅ Usando VPS_IP do secret: $VPS_IP_VALUE"
+          fi
+
+          # Gera API_BASE_URL automaticamente se não estiver definido
+          API_BASE_URL_VALUE="${{ secrets.API_BASE_URL }}"
+          if [ -z "$API_BASE_URL_VALUE" ] || [ "$API_BASE_URL_VALUE" = "" ]; then
+            API_BASE_URL_VALUE="http://${VPS_IP_VALUE}:4010"
+            echo "✅ API_BASE_URL gerado automaticamente: $API_BASE_URL_VALUE"
+          else
+            echo "✅ Usando API_BASE_URL do secret: $API_BASE_URL_VALUE"
+          fi
+
+          # Cria arquivo .env localmente
+          cat > .env << EOF
           DOCKER_HUB_USERNAME=${{ secrets.DOCKER_HUB_USERNAME }}
           DB_NAME=${{ secrets.DB_NAME }}
           DB_USER=${{ secrets.DB_USER }}
@@ -148,10 +165,16 @@ jobs:
           LOKI_HOST=${{ secrets.LOKI_HOST }}
           LOKI_PORT=${{ secrets.LOKI_PORT }}
           SKIP_LOKI_DIAGNOSTICS=${{ secrets.SKIP_LOKI_DIAGNOSTICS }}
-          VPS_IP=${{ secrets.VPS_IP }}
-          API_BASE_URL=${{ secrets.API_BASE_URL }}
-          ENVEOF
-          SSHEOF
+          VPS_IP=${VPS_IP_VALUE}
+          API_BASE_URL=${API_BASE_URL_VALUE}
+          EOF
+
+          # Copia o arquivo .env para a VPS
+          scp .env ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/hub-logistica/.env
+
+          echo "✅ Arquivo .env criado e copiado para a VPS"
+          echo "VPS_IP=${VPS_IP_VALUE}"
+          echo "API_BASE_URL=${API_BASE_URL_VALUE}"
 
       - name: Execute deploy via Portainer
         run: |
