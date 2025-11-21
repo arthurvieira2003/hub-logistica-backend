@@ -309,6 +309,61 @@ class DeployPortainer {
   };
 
   criarContainer = async () => {
+    // Valida variáveis obrigatórias para o backend
+    const requiredVars = [
+      "DB_NAME",
+      "DB_USER",
+      "DB_PASSWORD",
+      "DB_HOST",
+      "DB_DIALECT",
+      "DB_PORT",
+      "JWT_SECRET",
+    ];
+
+    const missingVars = requiredVars.filter(
+      (varName) => !process.env[varName] || process.env[varName].trim() === ""
+    );
+
+    if (missingVars.length > 0) {
+      throw new Error(
+        `Variáveis obrigatórias não configuradas: ${missingVars.join(
+          ", "
+        )}. Configure os secrets no GitHub Actions.`
+      );
+    }
+
+    // Prepara variáveis de ambiente
+    const envVars = [
+      `NODE_ENV=production`,
+      `PORT=${this.ExposedPorts}`,
+      `DB_NAME=${process.env.DB_NAME}`,
+      `DB_USER=${process.env.DB_USER}`,
+      `DB_PASSWORD=${process.env.DB_PASSWORD}`,
+      `DB_HOST=${process.env.DB_HOST}`,
+      `DB_DIALECT=${process.env.DB_DIALECT}`,
+      `DB_PORT=${process.env.DB_PORT}`,
+      `JWT_SECRET=${process.env.JWT_SECRET}`,
+    ];
+
+    // Variáveis opcionais
+    if (process.env.LOKI_HOST) {
+      envVars.push(`LOKI_HOST=${process.env.LOKI_HOST}`);
+    }
+    if (process.env.LOKI_PORT) {
+      envVars.push(`LOKI_PORT=${process.env.LOKI_PORT}`);
+    }
+    if (process.env.SKIP_LOKI_DIAGNOSTICS) {
+      envVars.push(
+        `SKIP_LOKI_DIAGNOSTICS=${process.env.SKIP_LOKI_DIAGNOSTICS}`
+      );
+    }
+
+    console.log("Variáveis de ambiente que serão configuradas no container:");
+    envVars.forEach((env) => {
+      const [key] = env.split("=");
+      console.log(`  - ${key}`);
+    });
+
     try {
       const listContainersConfig = {
         method: "get",
@@ -386,28 +441,7 @@ class DeployPortainer {
           PortBindings: { "4010/tcp": [{ HostPort: this.ExposedPorts }] },
           RestartPolicy: { Name: "unless-stopped" },
         },
-        Env: [
-          `NODE_ENV=production`,
-          `PORT=${this.ExposedPorts}`,
-          process.env.DB_NAME ? `DB_NAME=${process.env.DB_NAME}` : null,
-          process.env.DB_USER ? `DB_USER=${process.env.DB_USER}` : null,
-          process.env.DB_PASSWORD
-            ? `DB_PASSWORD=${process.env.DB_PASSWORD}`
-            : null,
-          process.env.DB_HOST ? `DB_HOST=${process.env.DB_HOST}` : null,
-          process.env.DB_DIALECT
-            ? `DB_DIALECT=${process.env.DB_DIALECT}`
-            : null,
-          process.env.DB_PORT ? `DB_PORT=${process.env.DB_PORT}` : null,
-          process.env.JWT_SECRET
-            ? `JWT_SECRET=${process.env.JWT_SECRET}`
-            : null,
-          process.env.LOKI_HOST ? `LOKI_HOST=${process.env.LOKI_HOST}` : null,
-          process.env.LOKI_PORT ? `LOKI_PORT=${process.env.LOKI_PORT}` : null,
-          process.env.SKIP_LOKI_DIAGNOSTICS
-            ? `SKIP_LOKI_DIAGNOSTICS=${process.env.SKIP_LOKI_DIAGNOSTICS}`
-            : null,
-        ].filter(Boolean),
+        Env: envVars,
       },
       httpsAgent: agent,
     };
