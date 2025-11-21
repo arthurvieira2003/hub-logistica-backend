@@ -142,22 +142,48 @@ if [ -n "$STACK_ID" ]; then
   
   if [ -n "$DELETE_HTTP_CODE" ] && [ "$DELETE_HTTP_CODE" = "204" ]; then
     echo -e "${GREEN}Stack deletada com sucesso${NC}"
-    echo -e "${YELLOW}Aguardando limpeza completa (30 segundos)...${NC}"
-    sleep 30
+    echo -e "${YELLOW}Aguardando limpeza completa...${NC}"
     
-    echo -e "${YELLOW}Verificando se a limpeza foi concluída...${NC}"
-    CHECK_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X GET \
-      "${PORTAINER_URL}/api/stacks?filters=%7B%22SwarmID%22%3A%22${PORTAINER_ENDPOINT_ID}%22%7D" \
-      -H "Authorization: Bearer ${JWT_TOKEN}")
+    MAX_RETRIES=5
+    RETRY_COUNT=0
+    STACK_STILL_EXISTS=true
     
-    CHECK_HTTP_CODE=$(echo "$CHECK_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
-    CHECK_BODY=$(echo "$CHECK_RESPONSE" | sed '/HTTP_CODE:/d')
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ] && [ "$STACK_STILL_EXISTS" = true ]; do
+      sleep 10
+      RETRY_COUNT=$((RETRY_COUNT + 1))
+      echo -e "${YELLOW}Verificando se a limpeza foi concluída (tentativa $RETRY_COUNT/$MAX_RETRIES)...${NC}"
+      
+      CHECK_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X GET \
+        "${PORTAINER_URL}/api/stacks" \
+        -H "Authorization: Bearer ${JWT_TOKEN}")
+      
+      CHECK_HTTP_CODE=$(echo "$CHECK_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
+      CHECK_BODY=$(echo "$CHECK_RESPONSE" | sed '/HTTP_CODE:/d')
+      
+      FOUND_STACK_ID=""
+      if command -v jq &> /dev/null; then
+        FOUND_STACK_ID=$(echo "$CHECK_BODY" | jq -r ".[] | select(.EndpointId == ${PORTAINER_ENDPOINT_ID} and .Name == \"${PORTAINER_STACK_NAME}\") | .Id" | head -1)
+      else
+        for id in $(echo "$CHECK_BODY" | grep -o '"Id":[0-9]*' | cut -d':' -f2); do
+          stack_section=$(echo "$CHECK_BODY" | grep -A 30 "\"Id\":$id" | head -30)
+          if echo "$stack_section" | grep -qi "\"Name\":\"${PORTAINER_STACK_NAME}\"" && \
+             echo "$stack_section" | grep -q "\"EndpointId\":${PORTAINER_ENDPOINT_ID}"; then
+            FOUND_STACK_ID=$id
+            break
+          fi
+        done
+      fi
+      
+      if [ -z "$FOUND_STACK_ID" ] || [ "$FOUND_STACK_ID" = "" ] || [ "$FOUND_STACK_ID" = "null" ]; then
+        echo -e "${GREEN}Limpeza confirmada. Stack não existe mais.${NC}"
+        STACK_STILL_EXISTS=false
+      else
+        echo -e "${YELLOW}Stack ainda existe (ID: $FOUND_STACK_ID). Aguardando...${NC}"
+      fi
+    done
     
-    if echo "$CHECK_BODY" | jq -e ".[] | select(.Name == \"${PORTAINER_STACK_NAME}\")" > /dev/null 2>&1; then
-      echo -e "${RED}Stack ainda existe após deleção. Aguardando mais 20 segundos...${NC}"
-      sleep 20
-    else
-      echo -e "${GREEN}Limpeza confirmada. Stack não existe mais.${NC}"
+    if [ "$STACK_STILL_EXISTS" = true ]; then
+      echo -e "${YELLOW}Aviso: Stack ainda pode estar sendo processada, mas continuando com a criação...${NC}"
     fi
     
     STACK_ID=""
@@ -171,25 +197,24 @@ fi
 
 if [ -z "$STACK_ID" ]; then
   echo -e "${YELLOW}Criando stack...${NC}"
-  echo -e "${YELLOW}Tentando criar stack como Swarm...${NC}"
-  CREATE_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X POST \
-    "${PORTAINER_URL}/api/stacks/create/swarm/string?endpointId=${PORTAINER_ENDPOINT_ID}" \
-    -H "Authorization: Bearer ${JWT_TOKEN}" \
-    -H "Content-Type: application/json" \
-    -d "{
-      \"name\": \"${PORTAINER_STACK_NAME}\",
-      \"stackFileContent\": \"${COMPOSE_CONTENT}\",
-      \"env\": ${ENV_JSON},
-      \"fromAppTemplate\": false
-    }")
   
-  CREATE_HTTP_CODE=$(echo "$CREATE_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
-  CREATE_BODY=$(echo "$CREATE_RESPONSE" | sed '/HTTP_CODE:/d')
+  STACK_CREATED=false
+  MAX_CREATE_RETRIES=3
+  CREATE_RETRY_COUNT=0
   
-  if [ -z "$CREATE_HTTP_CODE" ] || [ "$CREATE_HTTP_CODE" != "200" ]; then
-    echo -e "${YELLOW}Tentando criar stack como Standalone...${NC}"
+  while [ "$STACK_CREATED" = false ] && [ $CREATE_RETRY_COUNT -lt $MAX_CREATE_RETRIES ]; do
+    CREATE_RETRY_COUNT=$((CREATE_RETRY_COUNT + 1))
+    
+    if [ $CREATE_RETRY_COUNT -eq 1 ]; then
+      echo -e "${YELLOW}Tentando criar stack como Swarm...${NC}"
+      STACK_TYPE="swarm"
+    else
+      echo -e "${YELLOW}Tentando criar stack como Standalone (tentativa $CREATE_RETRY_COUNT/$MAX_CREATE_RETRIES)...${NC}"
+      STACK_TYPE="standalone"
+    fi
+    
     CREATE_RESPONSE=$(curl $CURL_OPTS -s -w "\nHTTP_CODE:%{http_code}" -X POST \
-      "${PORTAINER_URL}/api/stacks/create/standalone/string?endpointId=${PORTAINER_ENDPOINT_ID}" \
+      "${PORTAINER_URL}/api/stacks/create/${STACK_TYPE}/string?endpointId=${PORTAINER_ENDPOINT_ID}" \
       -H "Authorization: Bearer ${JWT_TOKEN}" \
       -H "Content-Type: application/json" \
       -d "{
@@ -201,10 +226,26 @@ if [ -z "$STACK_ID" ]; then
     
     CREATE_HTTP_CODE=$(echo "$CREATE_RESPONSE" | grep "HTTP_CODE:" | cut -d':' -f2)
     CREATE_BODY=$(echo "$CREATE_RESPONSE" | sed '/HTTP_CODE:/d')
-  fi
+    
+    if [ "$CREATE_HTTP_CODE" = "200" ]; then
+      STACK_CREATED=true
+      echo -e "${GREEN}Stack criada com sucesso!${NC}"
+    elif [ "$CREATE_HTTP_CODE" = "409" ]; then
+      echo -e "${YELLOW}Erro 409 (Conflict): Stack ainda existe. Aguardando 15 segundos antes da próxima tentativa...${NC}"
+      if [ $CREATE_RETRY_COUNT -lt $MAX_CREATE_RETRIES ]; then
+        sleep 15
+      fi
+    else
+      echo -e "${YELLOW}Erro ao criar stack: Código HTTP ${CREATE_HTTP_CODE:-'N/A'}${NC}"
+      if [ $CREATE_RETRY_COUNT -lt $MAX_CREATE_RETRIES ]; then
+        echo -e "${YELLOW}Aguardando 10 segundos antes da próxima tentativa...${NC}"
+        sleep 10
+      fi
+    fi
+  done
   
-  if [ -z "$CREATE_HTTP_CODE" ] || [ "$CREATE_HTTP_CODE" != "200" ]; then
-    echo -e "${RED}Erro ao criar stack: Código HTTP ${CREATE_HTTP_CODE:-'N/A'}${NC}"
+  if [ "$STACK_CREATED" = false ]; then
+    echo -e "${RED}Erro ao criar stack após $MAX_CREATE_RETRIES tentativas: Código HTTP ${CREATE_HTTP_CODE:-'N/A'}${NC}"
     echo "Endpoint ID: ${PORTAINER_ENDPOINT_ID}"
     echo "Stack Name: ${PORTAINER_STACK_NAME}"
     echo "Resposta completa: $CREATE_RESPONSE"
@@ -214,6 +255,7 @@ if [ -z "$STACK_ID" ]; then
     echo "  - Endpoint ID incorreto"
     echo "  - Permissões insuficientes"
     echo "  - Formato do docker-compose.yml inválido"
+    echo "  - Stack ainda existe no Portainer (tente deletar manualmente)"
     echo "  - Verifique a documentação da API: https://app.swaggerhub.com/apis/portainer/portainer-ce/2.33.3"
     exit 1
   fi
@@ -222,8 +264,6 @@ if [ -z "$STACK_ID" ]; then
     echo -e "${RED}Erro ao criar stack: $CREATE_BODY${NC}"
     exit 1
   fi
-  
-  echo -e "${GREEN}Stack criada com sucesso!${NC}"
 fi
 
 echo -e "${GREEN}Deploy concluído com sucesso via Portainer!${NC}"
