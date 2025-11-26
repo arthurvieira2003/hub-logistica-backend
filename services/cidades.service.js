@@ -2,20 +2,117 @@ const Cidades = require("../models/cidades.model");
 const Estados = require("../models/estados.model");
 const Rotas = require("../models/rotas.model");
 const PrecosFaixas = require("../models/precosFaixas.model");
-const { Op } = require("sequelize");
+const { Op, Sequelize } = require("sequelize");
 
-const getAllCidades = async () => {
+const getAllCidades = async (page = 1, limit = 50, search = null) => {
   try {
-    const cidades = await Cidades.findAll({
-      include: [
-        {
-          model: Estados,
-          attributes: ["id_estado", "uf", "nome_estado"],
+    const offset = (page - 1) * limit;
+
+    // Prepara condições de busca
+    let whereCondition = {};
+    let includeCondition = [
+      {
+        model: Estados,
+        attributes: ["id_estado", "uf", "nome_estado"],
+      },
+    ];
+
+    // Se houver busca, adiciona condições
+    if (search && search.trim() !== "") {
+      const searchTerm = search.trim();
+      const searchTermLower = searchTerm.toLowerCase();
+
+      // Busca estados que correspondem ao termo de busca
+      const estados = await Estados.findAll({
+        where: {
+          [Op.or]: [
+            Sequelize.where(
+              Sequelize.fn("LOWER", Sequelize.col("uf")),
+              Op.like,
+              `%${searchTermLower}%`
+            ),
+            Sequelize.where(
+              Sequelize.fn("LOWER", Sequelize.col("nome_estado")),
+              Op.like,
+              `%${searchTermLower}%`
+            ),
+          ],
         },
-      ],
-      order: [["nome_cidade", "ASC"]],
+        attributes: ["id_estado"],
+      });
+
+      const estadoIds = estados.map((e) => e.id_estado);
+
+      // Verifica se o termo de busca é um número (ID da cidade ou código IBGE)
+      const isNumeric = !isNaN(searchTerm) && !isNaN(parseInt(searchTerm));
+      const cidadeId = isNumeric ? parseInt(searchTerm) : null;
+
+      // Monta a condição WHERE
+      const conditions = [];
+
+      // Busca por nome de cidade
+      conditions.push(
+        Sequelize.where(
+          Sequelize.fn("LOWER", Sequelize.col("nome_cidade")),
+          Op.like,
+          `%${searchTermLower}%`
+        )
+      );
+
+      // Busca por estado
+      if (estadoIds.length > 0) {
+        conditions.push({ id_estado: { [Op.in]: estadoIds } });
+      }
+
+      // Busca por ID ou código IBGE
+      if (cidadeId !== null) {
+        conditions.push({ id_cidade: cidadeId });
+        conditions.push({ codigo_ibge: cidadeId });
+      }
+
+      if (conditions.length > 0) {
+        whereCondition = {
+          [Op.or]: conditions,
+        };
+      } else {
+        // Se não encontrou nada, retorna vazio
+        return {
+          data: [],
+          pagination: {
+            total: 0,
+            page: page,
+            limit: limit,
+            totalPages: 0,
+          },
+        };
+      }
+    }
+
+    // Busca o total de cidades com a condição de busca
+    const totalCidades = await Cidades.count({
+      where: whereCondition,
+      distinct: true,
+      col: 'id_cidade',
     });
-    return cidades;
+
+    // Busca as cidades com paginação e busca
+    const cidades = await Cidades.findAll({
+      where: whereCondition,
+      include: includeCondition,
+      order: [["nome_cidade", "ASC"]],
+      limit: limit,
+      offset: offset,
+    });
+
+    return {
+      data: cidades,
+      pagination: {
+        total: totalCidades,
+        page: page,
+        limit: limit,
+        totalPages: Math.ceil(totalCidades / limit),
+      },
+    };
   } catch (error) {
     console.error("Erro ao buscar cidades:", error);
     throw error;

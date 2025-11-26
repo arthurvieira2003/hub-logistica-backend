@@ -1,12 +1,116 @@
 const Transportadoras = require("../models/transportadoras.model");
 const PrecosFaixas = require("../models/precosFaixas.model");
+const { Op, Sequelize } = require("sequelize");
 
-const getAllTransportadoras = async () => {
+const getAllTransportadoras = async (page = 1, limit = 50, search = null) => {
   try {
-    const transportadoras = await Transportadoras.findAll({
-      order: [["nome_transportadora", "ASC"]],
+    const offset = (page - 1) * limit;
+
+    // Prepara condições de busca
+    let whereCondition = {};
+
+    // Se houver busca, adiciona condições
+    if (search && search.trim() !== "") {
+      const searchTerm = search.trim();
+      const searchTermLower = searchTerm.toLowerCase();
+
+      // Verifica se o termo de busca é um número (ID da transportadora)
+      const isNumeric = !isNaN(searchTerm) && !isNaN(parseInt(searchTerm));
+      const transportadoraId = isNumeric ? parseInt(searchTerm) : null;
+
+      // Monta a condição WHERE
+      const conditions = [];
+
+      // Busca por nome da transportadora
+      conditions.push(
+        Sequelize.where(
+          Sequelize.fn("LOWER", Sequelize.col("nome_transportadora")),
+          Op.like,
+          `%${searchTermLower}%`
+        )
+      );
+
+      // Busca por razão social
+      conditions.push(
+        Sequelize.where(
+          Sequelize.fn("LOWER", Sequelize.col("razao_social")),
+          Op.like,
+          `%${searchTermLower}%`
+        )
+      );
+
+      // Busca por CNPJ (busca direta, sem remover formatação)
+      conditions.push(
+        Sequelize.where(
+          Sequelize.fn("LOWER", Sequelize.col("cnpj")),
+          Op.like,
+          `%${searchTermLower}%`
+        )
+      );
+
+      // Busca por email
+      conditions.push(
+        Sequelize.where(
+          Sequelize.fn("LOWER", Sequelize.col("email")),
+          Op.like,
+          `%${searchTermLower}%`
+        )
+      );
+
+      // Busca por telefone (busca direta, sem remover formatação)
+      conditions.push(
+        Sequelize.where(
+          Sequelize.fn("LOWER", Sequelize.col("telefone")),
+          Op.like,
+          `%${searchTermLower}%`
+        )
+      );
+
+      // Busca por ID se for numérico
+      if (transportadoraId !== null) {
+        conditions.push({ id_transportadora: transportadoraId });
+      }
+
+      if (conditions.length > 0) {
+        whereCondition = {
+          [Op.or]: conditions,
+        };
+      } else {
+        // Se não encontrou nada, retorna vazio
+        return {
+          data: [],
+          pagination: {
+            total: 0,
+            page: page,
+            limit: limit,
+            totalPages: 0,
+          },
+        };
+      }
+    }
+
+    // Busca o total de transportadoras com a condição de busca
+    const totalTransportadoras = await Transportadoras.count({
+      where: whereCondition,
     });
-    return transportadoras;
+
+    // Busca as transportadoras com paginação e busca
+    const transportadoras = await Transportadoras.findAll({
+      where: whereCondition,
+      order: [["nome_transportadora", "ASC"]],
+      limit: limit,
+      offset: offset,
+    });
+
+    return {
+      data: transportadoras,
+      pagination: {
+        total: totalTransportadoras,
+        page: page,
+        limit: limit,
+        totalPages: Math.ceil(totalTransportadoras / limit),
+      },
+    };
   } catch (error) {
     console.error("Erro ao buscar transportadoras:", error);
     throw error;

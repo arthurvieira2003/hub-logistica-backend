@@ -2,9 +2,20 @@ const transportadorasService = require("../services/transportadoras.service");
 
 const getAllTransportadoras = async (req, res) => {
   try {
-    const transportadoras =
-      await transportadorasService.getAllTransportadoras();
-    res.status(200).json(transportadoras);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const search = req.query.search || null;
+    
+    // Validação dos parâmetros
+    if (page < 1) {
+      return res.status(400).json({ error: "A página deve ser maior que 0" });
+    }
+    if (limit < 1 || limit > 100) {
+      return res.status(400).json({ error: "O limite deve estar entre 1 e 100" });
+    }
+
+    const result = await transportadorasService.getAllTransportadoras(page, limit, search);
+    res.status(200).json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

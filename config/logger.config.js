@@ -7,7 +7,6 @@ module.exports = {
     port: process.env.LOKI_PORT || "3100",
     endpoint: process.env.LOKI_ENDPOINT || "/loki/api/v1/push",
     get url() {
-      // Se LOKI_HOST não estiver definido, retornar string vazia para desabilitar Loki
       if (!this.host || this.host.trim() === "") {
         return "";
       }

@@ -2,14 +2,90 @@ const Estados = require("../models/estados.model");
 const Cidades = require("../models/cidades.model");
 const Rotas = require("../models/rotas.model");
 const PrecosFaixas = require("../models/precosFaixas.model");
-const { Op } = require("sequelize");
+const { Op, Sequelize } = require("sequelize");
 
-const getAllEstados = async () => {
+const getAllEstados = async (page = 1, limit = 50, search = null) => {
   try {
-    const estados = await Estados.findAll({
-      order: [["nome_estado", "ASC"]],
+    const offset = (page - 1) * limit;
+
+    // Prepara condições de busca
+    let whereCondition = {};
+
+    // Se houver busca, adiciona condições
+    if (search && search.trim() !== "") {
+      const searchTerm = search.trim();
+      const searchTermLower = searchTerm.toLowerCase();
+
+      // Verifica se o termo de busca é um número (ID do estado)
+      const isNumeric = !isNaN(searchTerm) && !isNaN(parseInt(searchTerm));
+      const estadoId = isNumeric ? parseInt(searchTerm) : null;
+
+      // Monta a condição WHERE
+      const conditions = [];
+
+      // Busca por UF
+      conditions.push(
+        Sequelize.where(
+          Sequelize.fn("LOWER", Sequelize.col("uf")),
+          Op.like,
+          `%${searchTermLower}%`
+        )
+      );
+
+      // Busca por nome do estado
+      conditions.push(
+        Sequelize.where(
+          Sequelize.fn("LOWER", Sequelize.col("nome_estado")),
+          Op.like,
+          `%${searchTermLower}%`
+        )
+      );
+
+      // Busca por ID se for numérico
+      if (estadoId !== null) {
+        conditions.push({ id_estado: estadoId });
+      }
+
+      if (conditions.length > 0) {
+        whereCondition = {
+          [Op.or]: conditions,
+        };
+      } else {
+        // Se não encontrou nada, retorna vazio
+        return {
+          data: [],
+          pagination: {
+            total: 0,
+            page: page,
+            limit: limit,
+            totalPages: 0,
+          },
+        };
+      }
+    }
+
+    // Busca o total de estados com a condição de busca
+    const totalEstados = await Estados.count({
+      where: whereCondition,
     });
-    return estados;
+
+    // Busca os estados com paginação e busca
+    const estados = await Estados.findAll({
+      where: whereCondition,
+      order: [["uf", "ASC"]],
+      limit: limit,
+      offset: offset,
+    });
+
+    return {
+      data: estados,
+      pagination: {
+        total: totalEstados,
+        page: page,
+        limit: limit,
+        totalPages: Math.ceil(totalEstados / limit),
+      },
+    };
   } catch (error) {
     console.error("Erro ao buscar estados:", error);
     throw error;
