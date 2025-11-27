@@ -39,9 +39,26 @@ const createMockResponse = () => {
   return res;
 };
 
+const createMockSequelizeModel = () => {
+  const mockModel = {
+    findByPk: jest.fn(),
+    findOne: jest.fn(),
+    findAll: jest.fn(),
+    create: jest.fn(),
+    count: jest.fn(),
+    belongsTo: jest.fn().mockReturnValue(mockModel),
+    hasMany: jest.fn().mockReturnValue(mockModel),
+    update: jest.fn(),
+    destroy: jest.fn(),
+    save: jest.fn(),
+  };
+  return mockModel;
+};
+
 module.exports = {
   createMockUser,
   createMockSession,
   createMockRequest,
   createMockResponse,
+  createMockSequelizeModel,
 };

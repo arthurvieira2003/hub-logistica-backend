@@ -2,15 +2,15 @@ const precosFaixasService = require("../services/precosFaixas.service");
 
 const getAllPrecosFaixas = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 50;
+    const page = req.query.page !== undefined ? parseInt(req.query.page, 10) : 1;
+    const limit = req.query.limit !== undefined ? parseInt(req.query.limit, 10) : 50;
     const search = req.query.search || null;
     
     // Validação dos parâmetros
-    if (page < 1) {
+    if (isNaN(page) || page < 1) {
       return res.status(400).json({ error: "A página deve ser maior que 0" });
     }
-    if (limit < 1 || limit > 100) {
+    if (isNaN(limit) || limit < 1 || limit > 100) {
       return res.status(400).json({ error: "O limite deve estar entre 1 e 100" });
     }
 
