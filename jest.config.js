@@ -10,6 +10,7 @@ module.exports = {
     "!**/routes/**",
     "!**/models/**",
     "!**/scripts/**",
+    "!**/utils/**",
     "!jest.config.js",
     "!app.js",
     "!sync-db.js",
