@@ -159,4 +159,152 @@ describe("CTE Controller", () => {
       expect(res.json).toHaveBeenCalledWith({ error: "PDF não encontrado" });
     });
   });
+
+  describe("getCTEBySerial", () => {
+    it("deve retornar CTE por serial com sucesso", async () => {
+      const serial = "12345678901234567890123456789012345678901234";
+      const mockCTE = {
+        serial: serial,
+        numero: "123",
+        cardName: "Cliente Teste",
+      };
+
+      req.params = { serial };
+      cteService.getCTEBySerial.mockResolvedValue(mockCTE);
+
+      await cteController.getCTEBySerial(req, res);
+
+      expect(cteService.getCTEBySerial).toHaveBeenCalledWith(serial);
+      expect(res.json).toHaveBeenCalledWith(mockCTE);
+    });
+
+    it("deve retornar erro 404 quando CTE não encontrado", async () => {
+      const serial = "99999999999999999999999999999999999999999999";
+
+      req.params = { serial };
+      cteService.getCTEBySerial.mockRejectedValue(
+        new Error("CT-E não encontrado")
+      );
+
+      await cteController.getCTEBySerial(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        message: "CT-E não encontrado",
+        error: expect.any(String),
+      });
+    });
+  });
+
+  describe("validarPrecoCTE", () => {
+    it("deve validar preço do CTE com sucesso", async () => {
+      const serial = "12345678901234567890123456789012345678901234";
+      const mockValidacao = {
+        valido: true,
+        status: "ok",
+        motivo: "Preço está de acordo com a tabela",
+        precoTabela: 1000.0,
+        precoCTE: 1000.0,
+        diferenca: 0,
+        percentualDiferenca: 0,
+      };
+
+      req.params = { serial };
+      cteService.getCTEBySerial.mockResolvedValue({});
+      const precoValidationService = require("../../services/precoValidation.service");
+      precoValidationService.validarPrecoCTE = jest
+        .fn()
+        .mockResolvedValue(mockValidacao);
+
+      await cteController.validarPrecoCTE(req, res);
+
+      expect(cteService.getCTEBySerial).toHaveBeenCalledWith(serial);
+      expect(res.json).toHaveBeenCalledWith(mockValidacao);
+    });
+
+    it("deve retornar erro 404 quando CTE não encontrado", async () => {
+      const serial = "99999999999999999999999999999999999999999999";
+
+      req.params = { serial };
+      cteService.getCTEBySerial.mockRejectedValue(
+        new Error("CT-e não encontrado")
+      );
+
+      await cteController.validarPrecoCTE(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        valido: false,
+        motivo: "CT-e não encontrado",
+        precoTabela: null,
+        precoCTE: null,
+        diferenca: null,
+        percentualDiferenca: null,
+      });
+    });
+
+    it("deve retornar erro 400 quando documento não é CT-e", async () => {
+      const serial = "12345678901234567890123456789012345678901234";
+
+      req.params = { serial };
+      cteService.getCTEBySerial.mockRejectedValue(
+        new Error("Este documento é uma NF-e")
+      );
+
+      await cteController.validarPrecoCTE(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        valido: false,
+        motivo: "Documento não é um CT-e",
+        precoTabela: null,
+        precoCTE: null,
+        diferenca: null,
+        percentualDiferenca: null,
+      });
+    });
+
+    it("deve retornar erro 500 quando ocorre erro na validação", async () => {
+      const serial = "12345678901234567890123456789012345678901234";
+
+      req.params = { serial };
+      cteService.getCTEBySerial.mockResolvedValue({});
+      const precoValidationService = require("../../services/precoValidation.service");
+      precoValidationService.validarPrecoCTE = jest
+        .fn()
+        .mockRejectedValue(new Error("Erro ao validar"));
+
+      await cteController.validarPrecoCTE(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        valido: false,
+        motivo: "Erro ao validar preço",
+        precoTabela: null,
+        precoCTE: null,
+        diferenca: null,
+        percentualDiferenca: null,
+        error: expect.any(String),
+      });
+    });
+
+    it("deve retornar erro 404 quando cte é null", async () => {
+      const serial = "12345678901234567890123456789012345678901234";
+
+      req.params = { serial };
+      cteService.getCTEBySerial.mockResolvedValue(null);
+
+      await cteController.validarPrecoCTE(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        valido: false,
+        motivo: "CT-e não encontrado",
+        precoTabela: null,
+        precoCTE: null,
+        diferenca: null,
+        percentualDiferenca: null,
+      });
+    });
+  });
 });

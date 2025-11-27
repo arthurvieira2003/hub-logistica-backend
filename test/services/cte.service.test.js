@@ -178,6 +178,207 @@ describe("CTE Service", () => {
 
       await expect(cteService.getCTEs()).rejects.toThrow(errorMessage);
     });
+
+    it("deve usar dataFiltro quando fornecido", async () => {
+      const dataFiltro = "2024-01-20";
+      axios.get.mockResolvedValue({ data: [] });
+
+      await cteService.getCTEs(dataFiltro);
+
+      expect(axios.get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          params: expect.objectContaining({
+            query: expect.stringContaining("2024-01-20"),
+          }),
+        })
+      );
+    });
+
+    it("deve filtrar NFe quando encontrada", async () => {
+      const mockNFeXml = `<?xml version="1.0" encoding="UTF-8"?>
+        <nfeProc xmlns="http://www.portalfiscal.inf.br/nfe">
+          <NFe>
+            <infNFe>
+            </infNFe>
+          </NFe>
+        </nfeProc>`;
+
+      const compressedXml = zlib.deflateRawSync(Buffer.from(mockNFeXml));
+      const mockXmlFile = compressedXml.toString("base64");
+
+      const mockResponseData = [
+        {
+          Serial: "12345678901234567890123456789012345678901234",
+          CardName: "Cliente Teste",
+          DateAdd: "2024-01-15",
+          DocTotal: 1000.0,
+          XmlFile: mockXmlFile,
+        },
+      ];
+
+      axios.get.mockResolvedValue({ data: mockResponseData });
+      zlib.inflateRawSync.mockReturnValue(Buffer.from(mockNFeXml));
+
+      const result = await cteService.getCTEs();
+
+      expect(result).toHaveLength(0);
+    });
+
+    it("deve filtrar resNFe quando encontrado", async () => {
+      const mockResNFeXml = `<?xml version="1.0" encoding="UTF-8"?>
+        <resNFe>
+          <chNFe>12345678901234567890123456789012345678901234567890</chNFe>
+        </resNFe>`;
+
+      const compressedXml = zlib.deflateRawSync(Buffer.from(mockResNFeXml));
+      const mockXmlFile = compressedXml.toString("base64");
+
+      const mockResponseData = [
+        {
+          Serial: "12345678901234567890123456789012345678901234",
+          CardName: "Cliente Teste",
+          DateAdd: "2024-01-15",
+          DocTotal: 1000.0,
+          XmlFile: mockXmlFile,
+        },
+      ];
+
+      axios.get.mockResolvedValue({ data: mockResponseData });
+      zlib.inflateRawSync.mockReturnValue(Buffer.from(mockResNFeXml));
+
+      const result = await cteService.getCTEs();
+
+      expect(result).toHaveLength(0);
+    });
+
+    it("deve processar CTe sem cteProc", async () => {
+      const mockCteXml = `<?xml version="1.0" encoding="UTF-8"?>
+        <CTe xmlns="http://www.portalfiscal.inf.br/cte">
+          <infCte>
+            <rem>
+              <xNome>Remetente Teste</xNome>
+            </rem>
+            <dest>
+              <xNome>Destinatário Teste</xNome>
+            </dest>
+          </infCte>
+        </CTe>`;
+
+      const compressedXml = zlib.deflateRawSync(Buffer.from(mockCteXml));
+      const mockXmlFile = compressedXml.toString("base64");
+
+      const mockResponseData = [
+        {
+          Serial: "12345678901234567890123456789012345678901234",
+          CardName: "Cliente Teste",
+          DateAdd: "2024-01-15",
+          DocTotal: 1000.0,
+          XmlFile: mockXmlFile,
+        },
+      ];
+
+      const mockParsedXml = {
+        CTe: {
+          infCte: [
+            {
+              rem: [{ xNome: ["Remetente Teste"] }],
+              dest: [{ xNome: ["Destinatário Teste"] }],
+            },
+          ],
+        },
+      };
+
+      axios.get.mockResolvedValue({ data: mockResponseData });
+      zlib.inflateRawSync.mockReturnValue(Buffer.from(mockCteXml));
+      mockParseStringFn.mockResolvedValue(mockParsedXml);
+
+      const result = await cteService.getCTEs();
+
+      expect(result).toHaveLength(1);
+    });
+
+    it("deve pular documentos sem infCte válido", async () => {
+      const mockCteXml = `<?xml version="1.0" encoding="UTF-8"?>
+        <cteProc xmlns="http://www.portalfiscal.inf.br/cte">
+          <CTe>
+          </CTe>
+        </cteProc>`;
+
+      const compressedXml = zlib.deflateRawSync(Buffer.from(mockCteXml));
+      const mockXmlFile = compressedXml.toString("base64");
+
+      const mockResponseData = [
+        {
+          Serial: "12345678901234567890123456789012345678901234",
+          CardName: "Cliente Teste",
+          DateAdd: "2024-01-15",
+          DocTotal: 1000.0,
+          XmlFile: mockXmlFile,
+        },
+      ];
+
+      const mockParsedXml = {
+        cteProc: {
+          CTe: [{}],
+        },
+      };
+
+      axios.get.mockResolvedValue({ data: mockResponseData });
+      zlib.inflateRawSync.mockReturnValue(Buffer.from(mockCteXml));
+      mockParseStringFn.mockResolvedValue(mockParsedXml);
+
+      const result = await cteService.getCTEs();
+
+      expect(result).toHaveLength(0);
+    });
+
+    it("deve pular documentos com nfeProc no resultado parseado", async () => {
+      const mockCteXml = `<?xml version="1.0" encoding="UTF-8"?>
+        <cteProc xmlns="http://www.portalfiscal.inf.br/cte">
+          <CTe>
+            <infCte>
+            </infCte>
+          </CTe>
+        </cteProc>`;
+
+      const compressedXml = zlib.deflateRawSync(Buffer.from(mockCteXml));
+      const mockXmlFile = compressedXml.toString("base64");
+
+      const mockResponseData = [
+        {
+          Serial: "12345678901234567890123456789012345678901234",
+          CardName: "Cliente Teste",
+          DateAdd: "2024-01-15",
+          DocTotal: 1000.0,
+          XmlFile: mockXmlFile,
+        },
+      ];
+
+      const mockParsedXml = {
+        nfeProc: {},
+        cteProc: {
+          CTe: [
+            {
+              infCte: [
+                {
+                  rem: [{ xNome: ["Remetente Teste"] }],
+                  dest: [{ xNome: ["Destinatário Teste"] }],
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      axios.get.mockResolvedValue({ data: mockResponseData });
+      zlib.inflateRawSync.mockReturnValue(Buffer.from(mockCteXml));
+      mockParseStringFn.mockResolvedValue(mockParsedXml);
+
+      const result = await cteService.getCTEs();
+
+      expect(result).toHaveLength(0);
+    });
   });
 
   describe("getXMLBySerial", () => {
@@ -356,6 +557,39 @@ describe("CTE Service", () => {
       const url = cteService.getURLConsultaPorEstado(serial);
 
       expect(url).toBe("https://cte.fazenda.sc.gov.br/dacte.aspx");
+    });
+  });
+
+  describe("getCTEBySerial", () => {
+    it("deve lançar erro quando CTE não encontrado", async () => {
+      const serial = "99999999999999999999999999999999999999999999";
+      axios.get.mockResolvedValue({ data: [] });
+
+      await expect(cteService.getCTEBySerial(serial)).rejects.toThrow(
+        "CT-E não encontrado"
+      );
+    });
+
+    it("deve lançar erro quando ocorre erro ao processar XML", async () => {
+      const serial = "42345678901234567890123456789012345678901234";
+      const mockXmlFile = Buffer.from("compressed-xml-data").toString("base64");
+
+      const mockResponseData = [
+        {
+          Serial: serial,
+          CardName: "Cliente Teste",
+          DateAdd: "2024-01-15",
+          DocTotal: 1000.0,
+          XmlFile: mockXmlFile,
+        },
+      ];
+
+      axios.get.mockResolvedValue({ data: mockResponseData });
+      zlib.inflateRawSync.mockImplementation(() => {
+        throw new Error("Erro ao descompactar");
+      });
+
+      await expect(cteService.getCTEBySerial(serial)).rejects.toThrow();
     });
   });
 });

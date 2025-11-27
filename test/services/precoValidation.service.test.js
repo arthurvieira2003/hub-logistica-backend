@@ -183,6 +183,7 @@ describe("PrecoValidation Service", () => {
       expect(result.valido).toBe(false);
       expect(result.motivo).toBe("Rota não encontrada");
     });
+
   });
 });
 
