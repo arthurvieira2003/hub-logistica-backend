@@ -1,0 +1,58 @@
+services:
+  # Serviço do Backend (API)
+  backend:
+    image: arthurvieira2003/hub-logistica-backend:latest
+    container_name: hub-logistica-backend
+    ports:
+      - "0.0.0.0:4010:4010"
+    environment:
+      - DB_HOST=
+      - DB_USER=
+      - DB_PASSWORD=
+      - DB_NAME=
+      - DB_DIALECT=
+      - DB_PORT=
+      - JWT_SECRET=
+      - WS_URL=
+      - WS_TOKEN=
+      - OURO_NEGRO_URL=
+      - ALFA_URL=
+      - ALFA_TOKEN=
+      - SE_SECRET=
+      - SE_URL=
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "4010"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - fullstack-network
+
+  # Serviço do Frontend
+  frontend:
+    image: arthurvieira2003/hub-logistica-frontend:latest
+    container_name: hub-logistica-frontend
+    ports:
+      - "0.0.0.0:3060:3060"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    networks:
+      - fullstack-network
+
+networks:
+  fullstack-network:
+    driver: bridge
+    name: hub-logistica-network
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.driver.mtu: "1500"
