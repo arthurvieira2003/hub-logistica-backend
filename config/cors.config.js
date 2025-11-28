@@ -1,7 +1,6 @@
 const allowedOrigins = [
   "http://localhost:3060",
-  "http://127.0.0.1:3060",
-  "https://glad-reliably-lion.ngrok-free.app",
+  "https://logistica.copapel.com.br",
 ];
 
 const corsOptions = {
