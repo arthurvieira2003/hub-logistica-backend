@@ -13,19 +13,19 @@ const rotasRoutes = require("./rotas.routes");
 const precosFaixasRoutes = require("./precosFaixas.routes");
 
 const registerRoutes = (app) => {
-  app.use("/user", userRoutes);
-  app.use("/session", sessionRoutes);
-  app.use("/ouroNegro", ouroNegroRoutes);
-  app.use("/alfa", alfaRoutes);
-  app.use("/princesa", princesaRoutes);
-  app.use("/cte", cteRoutes);
-  app.use("/generic", genericRoutes);
-  app.use("/estados", estadosRoutes);
-  app.use("/cidades", cidadesRoutes);
-  app.use("/transportadoras", transportadorasRoutes);
-  app.use("/faixas-peso", faixasPesoRoutes);
-  app.use("/rotas", rotasRoutes);
-  app.use("/precos-faixas", precosFaixasRoutes);
+  app.use("/api/user", userRoutes);
+  app.use("/api/session", sessionRoutes);
+  app.use("/api/ouroNegro", ouroNegroRoutes);
+  app.use("/api/alfa", alfaRoutes);
+  app.use("/api/princesa", princesaRoutes);
+  app.use("/api/cte", cteRoutes);
+  app.use("/api/generic", genericRoutes);
+  app.use("/api/estados", estadosRoutes);
+  app.use("/api/cidades", cidadesRoutes);
+  app.use("/api/transportadoras", transportadorasRoutes);
+  app.use("/api/faixas-peso", faixasPesoRoutes);
+  app.use("/api/rotas", rotasRoutes);
+  app.use("/api/precos-faixas", precosFaixasRoutes);
 };
 
 module.exports = registerRoutes;
