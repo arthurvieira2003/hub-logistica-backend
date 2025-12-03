@@ -7,98 +7,127 @@ require("dotenv").config();
 
 const parseString = promisify(xml2js.parseString);
 
-const getCTEs = async (dataFiltro = null) => {
+const obterDataFiltro = (dataFiltro) => {
+  if (dataFiltro) {
+    return dataFiltro;
+  }
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = String(hoje.getMonth() + 1).padStart(2, "0");
+  const dia = String(hoje.getDate()).padStart(2, "0");
+  return `${ano}-${mes}-${dia}`;
+};
+
+const construirQuery = (dataParaFiltro) => {
+  const dataInicio = `${dataParaFiltro} 00:00:00`;
+  const dataFim = `${dataParaFiltro} 23:59:59`;
+  return `SELECT "Serial","CardName","DateAdd","DocTotal","XmlFile" 
+    FROM "DBInvOne"."DocReceived" 
+    WHERE "DateAdd" >= '${dataInicio}' AND "DateAdd" <= '${dataFim}'
+    ORDER BY "DateAdd" DESC 
+    LIMIT 100`;
+};
+
+const fazerRequisicaoDocumentos = async (query) => {
+  const encodedQuery = encodeURIComponent(query);
+  return await axios.get(process.env.WS_URL, {
+    params: {
+      token: process.env.WS_TOKEN,
+      query: encodedQuery,
+    },
+  });
+};
+
+const decodificarXML = (xmlFileBase64) => {
+  const decodedData = Buffer.from(xmlFileBase64, "base64");
+  const decompressedData = zlib.inflateRawSync(decodedData);
+  return decompressedData.toString("utf-8");
+};
+
+const verificarSeENFe = (xmlString) => {
+  const temNFe = xmlString.includes("<NFe") || xmlString.includes("<nfeProc");
+  const temNFeNamespace =
+    xmlString.includes('xmlns="http://www.portalfiscal.inf.br/nfe') ||
+    xmlString.includes('xmlns="http://www.portalfiscal.inf.br/nfe"');
+  const temResNFe = xmlString.includes("<resNFe");
+  return temNFe || temNFeNamespace || temResNFe;
+};
+
+const verificarSeECTe = (xmlString) => {
+  const temCTe = xmlString.includes("<CTe") || xmlString.includes("<cteProc");
+  const temCTeNamespace =
+    xmlString.includes('xmlns="http://www.portalfiscal.inf.br/cte') ||
+    xmlString.includes('xmlns="http://www.portalfiscal.inf.br/cte"');
+  return temCTe || temCTeNamespace;
+};
+
+const extrairInfCte = (result) => {
+  if (result?.cteProc?.CTe?.[0]?.infCte?.[0]) {
+    return result.cteProc.CTe[0].infCte[0];
+  }
+  if (result?.CTe?.infCte?.[0]) {
+    return result.CTe.infCte[0];
+  }
+  if (result?.CTe?.[0]?.infCte?.[0]) {
+    return result.CTe[0].infCte[0];
+  }
+  return null;
+};
+
+const adicionarInformacoesRemetenteDestinatario = (doc, infCte) => {
   try {
-    let dataParaFiltro = dataFiltro;
-    if (!dataParaFiltro) {
-      const hoje = new Date();
-      const ano = hoje.getFullYear();
-      const mes = String(hoje.getMonth() + 1).padStart(2, "0");
-      const dia = String(hoje.getDate()).padStart(2, "0");
-      dataParaFiltro = `${ano}-${mes}-${dia}`;
+    const rem = infCte.rem?.[0] || {};
+    const dest = infCte.dest?.[0] || {};
+    doc.remetenteNome = rem.xNome?.[0] || "";
+    doc.destinatarioNome = dest.xNome?.[0] || "";
+  } catch (e) {
+    doc.remetenteNome = "";
+    doc.destinatarioNome = "";
+  }
+};
+
+const processarDocumento = async (doc) => {
+  try {
+    const xmlString = decodificarXML(doc.XmlFile);
+
+    if (verificarSeENFe(xmlString)) {
+      return null;
     }
 
-    const dataInicio = `${dataParaFiltro} 00:00:00`;
-    const dataFim = `${dataParaFiltro} 23:59:59`;
-    const query = `SELECT "Serial","CardName","DateAdd","DocTotal","XmlFile" 
-      FROM "DBInvOne"."DocReceived" 
-      WHERE "DateAdd" >= '${dataInicio}' AND "DateAdd" <= '${dataFim}'
-      ORDER BY "DateAdd" DESC 
-      LIMIT 100`;
-    const encodedQuery = encodeURIComponent(query);
+    if (!verificarSeECTe(xmlString)) {
+      return null;
+    }
 
-    const response = await axios.get(process.env.WS_URL, {
-      params: {
-        token: process.env.WS_TOKEN,
-        query: encodedQuery,
-      },
-    });
+    const result = await parseString(xmlString);
+
+    if (result?.nfeProc || result?.NFe || result?.resNFe) {
+      return null;
+    }
+
+    const infCte = extrairInfCte(result);
+    if (!infCte) {
+      return null;
+    }
+
+    doc.xmlData = result;
+    adicionarInformacoesRemetenteDestinatario(doc, infCte);
+    return doc;
+  } catch (e) {
+    return null;
+  }
+};
+
+const getCTEs = async (dataFiltro = null) => {
+  try {
+    const dataParaFiltro = obterDataFiltro(dataFiltro);
+    const query = construirQuery(dataParaFiltro);
+    const response = await fazerRequisicaoDocumentos(query);
 
     const ctes = [];
-
     for (const doc of response.data) {
-      try {
-        const decodedData = Buffer.from(doc.XmlFile, "base64");
-        const decompressedData = zlib.inflateRawSync(decodedData);
-        const xmlString = decompressedData.toString("utf-8");
-
-        const temCTe =
-          xmlString.includes("<CTe") || xmlString.includes("<cteProc");
-        const temCTeNamespace =
-          xmlString.includes('xmlns="http://www.portalfiscal.inf.br/cte') ||
-          xmlString.includes('xmlns="http://www.portalfiscal.inf.br/cte"');
-        const temNFe =
-          xmlString.includes("<NFe") || xmlString.includes("<nfeProc");
-        const temNFeNamespace =
-          xmlString.includes('xmlns="http://www.portalfiscal.inf.br/nfe') ||
-          xmlString.includes('xmlns="http://www.portalfiscal.inf.br/nfe"');
-        const temResNFe = xmlString.includes("<resNFe");
-
-        if (temNFe || temNFeNamespace || temResNFe) {
-          continue;
-        }
-
-        if (temCTe || temCTeNamespace) {
-          try {
-            const result = await parseString(xmlString);
-
-            if (result?.nfeProc || result?.NFe || result?.resNFe) {
-              continue;
-            }
-
-            let infCte = null;
-            if (result?.cteProc?.CTe?.[0]?.infCte?.[0]) {
-              infCte = result.cteProc.CTe[0].infCte[0];
-            } else if (result?.CTe?.infCte?.[0]) {
-              infCte = result.CTe.infCte[0];
-            } else if (result?.CTe?.[0]?.infCte?.[0]) {
-              infCte = result.CTe[0].infCte[0];
-            }
-
-            if (!infCte) {
-              continue;
-            }
-
-            doc.xmlData = result;
-
-            try {
-              const rem = infCte.rem?.[0] || {};
-              const dest = infCte.dest?.[0] || {};
-
-              doc.remetenteNome = rem.xNome?.[0] || "";
-              doc.destinatarioNome = dest.xNome?.[0] || "";
-            } catch (e) {
-              doc.remetenteNome = "";
-              doc.destinatarioNome = "";
-            }
-
-            ctes.push(doc);
-          } catch (err) {
-            continue;
-          }
-        }
-      } catch (e) {
-        continue;
+      const documentoProcessado = await processarDocumento(doc);
+      if (documentoProcessado) {
+        ctes.push(documentoProcessado);
       }
     }
 

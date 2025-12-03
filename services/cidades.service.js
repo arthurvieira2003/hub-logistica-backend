@@ -8,7 +8,6 @@ const getAllCidades = async (page = 1, limit = 50, search = null) => {
   try {
     const offset = (page - 1) * limit;
 
-    // Prepara condições de busca
     let whereCondition = {};
     let includeCondition = [
       {
@@ -17,12 +16,10 @@ const getAllCidades = async (page = 1, limit = 50, search = null) => {
       },
     ];
 
-    // Se houver busca, adiciona condições
     if (search && search.trim() !== "") {
       const searchTerm = search.trim();
       const searchTermLower = searchTerm.toLowerCase();
 
-      // Busca estados que correspondem ao termo de busca
       const estados = await Estados.findAll({
         where: {
           [Op.or]: [
@@ -43,14 +40,11 @@ const getAllCidades = async (page = 1, limit = 50, search = null) => {
 
       const estadoIds = estados.map((e) => e.id_estado);
 
-      // Verifica se o termo de busca é um número (ID da cidade ou código IBGE)
       const isNumeric = !isNaN(searchTerm) && !isNaN(parseInt(searchTerm));
       const cidadeId = isNumeric ? parseInt(searchTerm) : null;
 
-      // Monta a condição WHERE
       const conditions = [];
 
-      // Busca por nome de cidade
       conditions.push(
         Sequelize.where(
           Sequelize.fn("LOWER", Sequelize.col("nome_cidade")),
@@ -59,12 +53,10 @@ const getAllCidades = async (page = 1, limit = 50, search = null) => {
         )
       );
 
-      // Busca por estado
       if (estadoIds.length > 0) {
         conditions.push({ id_estado: { [Op.in]: estadoIds } });
       }
 
-      // Busca por ID ou código IBGE
       if (cidadeId !== null) {
         conditions.push({ id_cidade: cidadeId });
         conditions.push({ codigo_ibge: cidadeId });
@@ -75,7 +67,6 @@ const getAllCidades = async (page = 1, limit = 50, search = null) => {
           [Op.or]: conditions,
         };
       } else {
-        // Se não encontrou nada, retorna vazio
         return {
           data: [],
           pagination: {
@@ -88,14 +79,12 @@ const getAllCidades = async (page = 1, limit = 50, search = null) => {
       }
     }
 
-    // Busca o total de cidades com a condição de busca
     const totalCidades = await Cidades.count({
       where: whereCondition,
       distinct: true,
-      col: 'id_cidade',
+      col: "id_cidade",
     });
 
-    // Busca as cidades com paginação e busca
     const cidades = await Cidades.findAll({
       where: whereCondition,
       include: includeCondition,
@@ -210,77 +199,119 @@ const countRelatedRecords = async (id) => {
   }
 };
 
+const normalizarNome = (nome) => {
+  return nome
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+};
+
+const limparNome = (n) => {
+  return n
+    .replace(/\b(de|da|do|das|dos|e|em|na|no|nas|nos)\b/g, "")
+    .replace(/\s+/g, "")
+    .trim();
+};
+
+const compararNomesMunicipio = (nomeMunicipio, nomeNormalizado) => {
+  return (
+    nomeMunicipio === nomeNormalizado ||
+    nomeMunicipio.includes(nomeNormalizado) ||
+    nomeNormalizado.includes(nomeMunicipio)
+  );
+};
+
+const buscarMunicipioPorNome = (municipios, nomeNormalizado) => {
+  for (const municipio of municipios) {
+    const nomeMunicipio = normalizarNome(municipio.nome);
+    if (compararNomesMunicipio(nomeMunicipio, nomeNormalizado)) {
+      return municipio;
+    }
+  }
+  return undefined;
+};
+
+const compararNomesFlexivel = (nomeMunicipio, nomeNormalizado) => {
+  return limparNome(nomeMunicipio) === limparNome(nomeNormalizado);
+};
+
+const buscarMunicipioFlexivel = (municipios, nomeNormalizado) => {
+  for (const municipio of municipios) {
+    const nomeMunicipio = normalizarNome(municipio.nome);
+    if (compararNomesFlexivel(nomeMunicipio, nomeNormalizado)) {
+      return municipio;
+    }
+  }
+  return undefined;
+};
+
+const processarRespostaIBGE = (data, nomeCidade) => {
+  try {
+    const municipios = JSON.parse(data);
+    const nomeNormalizado = normalizarNome(nomeCidade);
+
+    const municipio = buscarMunicipioPorNome(municipios, nomeNormalizado);
+
+    if (municipio && municipio.id) {
+      return { codigo_ibge: municipio.id };
+    }
+
+    const municipioFlexivel = buscarMunicipioFlexivel(
+      municipios,
+      nomeNormalizado
+    );
+
+    if (municipioFlexivel && municipioFlexivel.id) {
+      return { codigo_ibge: municipioFlexivel.id };
+    }
+
+    return {
+      codigo_ibge: null,
+      message: "Código IBGE não encontrado",
+    };
+  } catch (error) {
+    throw new Error("Erro ao processar resposta da API do IBGE");
+  }
+};
+
+const criarHandlerResposta = (resolve) => {
+  let data = "";
+
+  const handleData = (chunk) => {
+    data += chunk;
+  };
+
+  const handleEnd = () => {
+    resolve(data);
+  };
+
+  return { handleData, handleEnd };
+};
+
+const fazerRequisicaoIBGE = (url) => {
+  return new Promise((resolve, reject) => {
+    const https = require("https");
+    const { handleData, handleEnd } = criarHandlerResposta(resolve);
+
+    const handleError = (error) => {
+      reject(new Error(`Erro ao buscar código IBGE: ${error.message}`));
+    };
+
+    https
+      .get(url, (res) => {
+        res.on("data", handleData);
+        res.on("end", handleEnd);
+      })
+      .on("error", handleError);
+  });
+};
+
 const buscarCodigoIBGE = async (nomeCidade, uf) => {
   try {
-    const https = require("https");
     const url = `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`;
-
-    return new Promise((resolve, reject) => {
-      https
-        .get(url, (res) => {
-          let data = "";
-
-          res.on("data", (chunk) => {
-            data += chunk;
-          });
-
-          res.on("end", () => {
-            try {
-              const municipios = JSON.parse(data);
-
-              const normalizarNome = (nome) => {
-                return nome
-                  .toLowerCase()
-                  .normalize("NFD")
-                  .replace(/[\u0300-\u036f]/g, "")
-                  .trim();
-              };
-
-              const nomeNormalizado = normalizarNome(nomeCidade);
-
-              const municipio = municipios.find((m) => {
-                const nomeMunicipio = normalizarNome(m.nome);
-                return (
-                  nomeMunicipio === nomeNormalizado ||
-                  nomeMunicipio.includes(nomeNormalizado) ||
-                  nomeNormalizado.includes(nomeMunicipio)
-                );
-              });
-
-              if (municipio && municipio.id) {
-                resolve({ codigo_ibge: municipio.id });
-              } else {
-                const municipioFlexivel = municipios.find((m) => {
-                  const nomeMunicipio = normalizarNome(m.nome);
-                  const limparNome = (n) => {
-                    return n
-                      .replace(/\b(de|da|do|das|dos|e|em|na|no|nas|nos)\b/g, "")
-                      .replace(/\s+/g, "")
-                      .trim();
-                  };
-                  return (
-                    limparNome(nomeMunicipio) === limparNome(nomeNormalizado)
-                  );
-                });
-
-                if (municipioFlexivel && municipioFlexivel.id) {
-                  resolve({ codigo_ibge: municipioFlexivel.id });
-                } else {
-                  resolve({
-                    codigo_ibge: null,
-                    message: "Código IBGE não encontrado",
-                  });
-                }
-              }
-            } catch (error) {
-              reject(new Error("Erro ao processar resposta da API do IBGE"));
-            }
-          });
-        })
-        .on("error", (error) => {
-          reject(new Error(`Erro ao buscar código IBGE: ${error.message}`));
-        });
-    });
+    const data = await fazerRequisicaoIBGE(url);
+    return processarRespostaIBGE(data, nomeCidade);
   } catch (error) {
     console.error("Erro ao buscar código IBGE:", error);
     throw error;

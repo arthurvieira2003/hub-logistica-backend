@@ -163,450 +163,597 @@ const buscarTransportadoraPorNome = async (nomeTransportadora) => {
   }
 };
 
+const normalizarPeso = (peso) => {
+  let pesoLimpo = String(peso).trim();
+  const matchPeso = pesoLimpo.match(/^[\d.,]+/);
+  if (matchPeso) {
+    pesoLimpo = matchPeso[0].replace(/,/g, ".");
+  }
+  return parseFloat(pesoLimpo);
+};
+
+const validarPeso = (pesoNum) => {
+  if (isNaN(pesoNum) || pesoNum <= 0) {
+    return { valido: false, erro: "Peso inválido" };
+  }
+  return { valido: true, erro: null };
+};
+
+const FAIXAS_CSV_PEQUENAS = [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 44];
+const FAIXAS_CSV_COMPLETAS = [
+  30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44,
+];
+
+const filtrarFaixasQueContemPeso = (faixas, pesoNum) => {
+  return faixas.filter((f) => {
+    const min = parseFloat(f.peso_minimo);
+    const max = parseFloat(f.peso_maximo);
+    return pesoNum >= min && pesoNum <= max;
+  });
+};
+
+const encontrarFaixaCSV = (faixas, faixasCSV) => {
+  return faixas.find((f) => faixasCSV.includes(f.id_faixa));
+};
+
+const ordenarFaixasPorIntervalo = (faixas) => {
+  return faixas.sort((a, b) => {
+    const intervaloA = parseFloat(a.peso_maximo) - parseFloat(a.peso_minimo);
+    const intervaloB = parseFloat(b.peso_maximo) - parseFloat(b.peso_minimo);
+    return intervaloA - intervaloB;
+  });
+};
+
+const obterFaixaDisponivel = (faixasQueContem) => {
+  const faixaCSV = encontrarFaixaCSV(faixasQueContem, FAIXAS_CSV_PEQUENAS);
+  if (faixaCSV) {
+    return { faixa: faixaCSV, erro: null };
+  }
+
+  const faixasOrdenadas = ordenarFaixasPorIntervalo(faixasQueContem);
+  return { faixa: faixasOrdenadas[0], erro: null };
+};
+
+const obterMotivoErroPeso = (pesoNum, faixasDisponiveis) => {
+  const maiorFaixa = faixasDisponiveis[faixasDisponiveis.length - 1];
+  const menorFaixa = faixasDisponiveis[0];
+  const pesoMaximoDisponivel = parseFloat(maiorFaixa.peso_maximo);
+  const pesoMinimoDisponivel = parseFloat(menorFaixa.peso_minimo);
+
+  if (pesoNum < pesoMinimoDisponivel) {
+    return "Peso abaixo da menor faixa disponível";
+  }
+  if (pesoNum > pesoMaximoDisponivel) {
+    return "Peso acima da maior faixa disponível";
+  }
+  return "Peso não se encaixa em nenhuma faixa disponível";
+};
+
+const processarFaixasDisponiveis = (precosExistentes) => {
+  return precosExistentes
+    .map((p) => p.FaixasPeso)
+    .filter((f) => f !== null && f !== undefined)
+    .filter(
+      (f, index, self) =>
+        index === self.findIndex((faixa) => faixa.id_faixa === f.id_faixa)
+    )
+    .sort((a, b) => parseFloat(a.peso_maximo) - parseFloat(b.peso_maximo));
+};
+
+const buscarFaixasComPreco = async (idRota, idTransportadora) => {
+  const precosExistentes = await PrecosFaixas.findAll({
+    where: {
+      id_rota: idRota,
+      id_transportadora: idTransportadora,
+      ativo: true,
+    },
+    include: [
+      {
+        model: FaixasPeso,
+        where: { ativa: true },
+        attributes: ["id_faixa", "descricao", "peso_minimo", "peso_maximo"],
+      },
+    ],
+    attributes: ["id_faixa"],
+  });
+
+  return processarFaixasDisponiveis(precosExistentes);
+};
+
+const buscarFaixasNoBanco = async () => {
+  return await FaixasPeso.findAll({
+    where: { ativa: true },
+    order: [["peso_maximo", "ASC"]],
+  });
+};
+
+const verificarPrecoExiste = async (idRota, idTransportadora, idFaixa) => {
+  return await PrecosFaixas.findOne({
+    where: {
+      id_rota: idRota,
+      id_transportadora: idTransportadora,
+      id_faixa: idFaixa,
+      ativo: true,
+    },
+  });
+};
+
+const encontrarFaixaComRotaETransportadora = async (
+  pesoNum,
+  idRota,
+  idTransportadora
+) => {
+  const faixasDisponiveis = await buscarFaixasComPreco(
+    idRota,
+    idTransportadora
+  );
+
+  if (faixasDisponiveis.length === 0) {
+    return {
+      faixa: null,
+      erro: "Nenhuma faixa de preço cadastrada",
+    };
+  }
+
+  const faixasQueContem = filtrarFaixasQueContemPeso(
+    faixasDisponiveis,
+    pesoNum
+  );
+
+  if (faixasQueContem.length > 0) {
+    return obterFaixaDisponivel(faixasQueContem);
+  }
+
+  const todasFaixasBanco = await buscarFaixasNoBanco();
+  const faixasQueContemPesoNoBanco = filtrarFaixasQueContemPeso(
+    todasFaixasBanco,
+    pesoNum
+  );
+
+  if (faixasQueContemPesoNoBanco.length > 0) {
+    const faixaCSV = encontrarFaixaCSV(
+      faixasQueContemPesoNoBanco,
+      FAIXAS_CSV_COMPLETAS
+    );
+    const faixaEncontrada = faixaCSV || faixasQueContemPesoNoBanco[0];
+
+    const precoExiste = await verificarPrecoExiste(
+      idRota,
+      idTransportadora,
+      faixaEncontrada.id_faixa
+    );
+
+    if (!precoExiste) {
+      return {
+        faixa: faixaEncontrada,
+        erro: "Preço não cadastrado para essa faixa de peso",
+      };
+    }
+  }
+
+  const motivo = obterMotivoErroPeso(pesoNum, faixasDisponiveis);
+  return { faixa: null, erro: motivo };
+};
+
+const encontrarFaixaSemRotaETransportadora = async (pesoNum) => {
+  const faixas = await buscarFaixasNoBanco();
+  const faixasQueContem = filtrarFaixasQueContemPeso(faixas, pesoNum);
+
+  if (faixasQueContem.length > 0) {
+    return obterFaixaDisponivel(faixasQueContem);
+  }
+
+  return { faixa: null, erro: "Faixa de peso não encontrada" };
+};
+
 const encontrarFaixaPeso = async (
   peso,
   idRota = null,
   idTransportadora = null
 ) => {
   try {
-    let pesoLimpo = String(peso).trim();
-    const pesoOriginal = pesoLimpo;
-    const matchPeso = pesoLimpo.match(/^[\d.,]+/);
-    if (matchPeso) {
-      pesoLimpo = matchPeso[0].replace(/,/g, ".");
-    }
-
-    const pesoNum = parseFloat(pesoLimpo);
-    if (isNaN(pesoNum) || pesoNum <= 0) {
-      return { faixa: null, erro: "Peso inválido" };
+    const pesoNum = normalizarPeso(peso);
+    const validacao = validarPeso(pesoNum);
+    if (!validacao.valido) {
+      return { faixa: null, erro: validacao.erro };
     }
 
     if (idRota && idTransportadora) {
-      const precosExistentes = await PrecosFaixas.findAll({
-        where: {
-          id_rota: idRota,
-          id_transportadora: idTransportadora,
-          ativo: true,
-        },
-        include: [
-          {
-            model: FaixasPeso,
-            where: { ativa: true },
-            attributes: ["id_faixa", "descricao", "peso_minimo", "peso_maximo"],
-          },
-        ],
-        attributes: ["id_faixa"],
-      });
-
-      const faixasDisponiveis = precosExistentes
-        .map((p) => p.FaixasPeso)
-        .filter((f) => f !== null && f !== undefined)
-        .filter(
-          (f, index, self) =>
-            index === self.findIndex((faixa) => faixa.id_faixa === f.id_faixa)
-        )
-        .sort((a, b) => parseFloat(a.peso_maximo) - parseFloat(b.peso_maximo));
-
-      if (faixasDisponiveis.length === 0) {
-        return {
-          faixa: null,
-          erro: "Nenhuma faixa de preço cadastrada",
-        };
-      }
-
-      const faixasQueContem = faixasDisponiveis.filter((f) => {
-        const min = parseFloat(f.peso_minimo);
-        const max = parseFloat(f.peso_maximo);
-        const contem = pesoNum >= min && pesoNum <= max;
-        return contem;
-      });
-
-      if (faixasQueContem.length > 0) {
-        const faixasCSV = [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 44];
-        const faixaCSV = faixasQueContem.find((f) =>
-          faixasCSV.includes(f.id_faixa)
-        );
-
-        if (faixaCSV) {
-          return { faixa: faixaCSV, erro: null };
-        }
-
-        faixasQueContem.sort((a, b) => {
-          const intervaloA =
-            parseFloat(a.peso_maximo) - parseFloat(a.peso_minimo);
-          const intervaloB =
-            parseFloat(b.peso_maximo) - parseFloat(b.peso_minimo);
-          return intervaloA - intervaloB;
-        });
-
-        return { faixa: faixasQueContem[0], erro: null };
-      }
-
-      const todasFaixasBanco = await FaixasPeso.findAll({
-        where: { ativa: true },
-        order: [["peso_maximo", "ASC"]],
-      });
-
-      const faixasQueContemPesoNoBanco = todasFaixasBanco.filter((f) => {
-        const min = parseFloat(f.peso_minimo);
-        const max = parseFloat(f.peso_maximo);
-        return pesoNum >= min && pesoNum <= max;
-      });
-
-      if (faixasQueContemPesoNoBanco.length > 0) {
-        const faixasCSV = [
-          30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44,
-        ];
-        const faixaCSV = faixasQueContemPesoNoBanco.find((f) =>
-          faixasCSV.includes(f.id_faixa)
-        );
-
-        const faixaEncontrada = faixaCSV || faixasQueContemPesoNoBanco[0];
-
-        const precoExiste = await PrecosFaixas.findOne({
-          where: {
-            id_rota: idRota,
-            id_transportadora: idTransportadora,
-            id_faixa: faixaEncontrada.id_faixa,
-            ativo: true,
-          },
-        });
-
-        if (!precoExiste) {
-          return {
-            faixa: faixaEncontrada,
-            erro: "Preço não cadastrado para essa faixa de peso",
-          };
-        }
-      }
-
-      const maiorFaixa = faixasDisponiveis[faixasDisponiveis.length - 1];
-      const menorFaixa = faixasDisponiveis[0];
-      const pesoMaximoDisponivel = parseFloat(maiorFaixa.peso_maximo);
-      const pesoMinimoDisponivel = parseFloat(menorFaixa.peso_minimo);
-
-      let motivo = "";
-      if (pesoNum < pesoMinimoDisponivel) {
-        motivo = "Peso abaixo da menor faixa disponível";
-      } else if (pesoNum > pesoMaximoDisponivel) {
-        motivo = "Peso acima da maior faixa disponível";
-      } else {
-        motivo = "Peso não se encaixa em nenhuma faixa disponível";
-      }
-
-      return { faixa: null, erro: motivo };
-    }
-
-    const faixas = await FaixasPeso.findAll({
-      where: { ativa: true },
-      order: [["peso_maximo", "ASC"]],
-    });
-
-    const faixasQueContem = faixas.filter(
-      (f) =>
-        pesoNum >= parseFloat(f.peso_minimo) &&
-        pesoNum <= parseFloat(f.peso_maximo)
-    );
-
-    if (faixasQueContem.length > 0) {
-      const faixasCSV = [30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 44];
-      const faixaCSV = faixasQueContem.find((f) =>
-        faixasCSV.includes(f.id_faixa)
+      return await encontrarFaixaComRotaETransportadora(
+        pesoNum,
+        idRota,
+        idTransportadora
       );
-
-      if (faixaCSV) {
-        return { faixa: faixaCSV, erro: null };
-      }
-
-      faixasQueContem.sort((a, b) => {
-        const intervaloA =
-          parseFloat(a.peso_maximo) - parseFloat(a.peso_minimo);
-        const intervaloB =
-          parseFloat(b.peso_maximo) - parseFloat(b.peso_minimo);
-        return intervaloA - intervaloB;
-      });
-
-      return { faixa: faixasQueContem[0], erro: null };
     }
 
-    return { faixa: null, erro: "Faixa de peso não encontrada" };
+    return await encontrarFaixaSemRotaETransportadora(pesoNum);
   } catch (error) {
     console.error("Erro ao buscar faixa de peso:", error);
     return { faixa: null, erro: "Erro ao buscar faixa" };
   }
 };
 
+const extrairDadosCTE = (cteData) => {
+  const { remetente, destinatario, valores, carga, emitente } = cteData;
+  return {
+    cidadeOrigemNome: remetente?.endereco?.municipio || "",
+    cidadeOrigemUF: remetente?.endereco?.uf || "",
+    cidadeDestinoNome: destinatario?.endereco?.municipio || "",
+    cidadeDestinoUF: destinatario?.endereco?.uf || "",
+    transportadoraNome: emitente?.nome || emitente?.fantasia || "",
+    peso: carga?.quantidade || "",
+    valorCTE: parseFloat(valores?.valorTotal || valores?.valorServico || 0),
+    valorMercadoria: parseFloat(carga?.valorCarga || valores?.valorCarga || 0),
+  };
+};
+
+const criarRespostaErro = (motivo, valorCTE) => {
+  return {
+    valido: false,
+    motivo,
+    precoTabela: null,
+    precoCTE: valorCTE,
+    diferenca: null,
+    percentualDiferenca: null,
+  };
+};
+
+const validarDadosBasicos = (dados) => {
+  if (
+    !dados.cidadeOrigemNome ||
+    !dados.cidadeDestinoNome ||
+    !dados.transportadoraNome
+  ) {
+    return {
+      valido: false,
+      resposta: criarRespostaErro("Dados insuficientes", dados.valorCTE),
+    };
+  }
+  return { valido: true, resposta: null };
+};
+
+const buscarEntidades = async (dados) => {
+  const cidadeOrigem = await buscarCidadePorNome(
+    dados.cidadeOrigemNome,
+    dados.cidadeOrigemUF
+  );
+  if (!cidadeOrigem) {
+    return {
+      sucesso: false,
+      resposta: criarRespostaErro(
+        "Cidade de origem não encontrada",
+        dados.valorCTE
+      ),
+    };
+  }
+
+  const cidadeDestino = await buscarCidadePorNome(
+    dados.cidadeDestinoNome,
+    dados.cidadeDestinoUF
+  );
+  if (!cidadeDestino) {
+    return {
+      sucesso: false,
+      resposta: criarRespostaErro(
+        "Cidade de destino não encontrada",
+        dados.valorCTE
+      ),
+    };
+  }
+
+  const transportadora = await buscarTransportadoraPorNome(
+    dados.transportadoraNome
+  );
+  if (!transportadora) {
+    return {
+      sucesso: false,
+      resposta: criarRespostaErro(
+        "Transportadora não encontrada",
+        dados.valorCTE
+      ),
+    };
+  }
+
+  const rota = await Rotas.findOne({
+    where: {
+      id_cidade_origem: cidadeOrigem.id_cidade,
+      id_cidade_destino: cidadeDestino.id_cidade,
+      ativa: true,
+    },
+  });
+
+  if (!rota) {
+    return {
+      sucesso: false,
+      resposta: criarRespostaErro("Rota não encontrada", dados.valorCTE),
+    };
+  }
+
+  return {
+    sucesso: true,
+    cidadeOrigem,
+    cidadeDestino,
+    transportadora,
+    rota,
+  };
+};
+
+const validarFaixaPeso = async (peso, idRota, idTransportadora, valorCTE) => {
+  const { faixa: faixaPeso, erro: erroFaixa } = await encontrarFaixaPeso(
+    peso,
+    idRota,
+    idTransportadora
+  );
+
+  if (!faixaPeso) {
+    return {
+      sucesso: false,
+      resposta: criarRespostaErro(
+        erroFaixa || "Faixa de peso não encontrada",
+        valorCTE
+      ),
+    };
+  }
+
+  if (erroFaixa && faixaPeso) {
+    return {
+      sucesso: false,
+      resposta: criarRespostaErro(erroFaixa, valorCTE),
+    };
+  }
+
+  return { sucesso: true, faixaPeso };
+};
+
+const buscarPrecoTabela = async (rota, faixaPeso, transportadora) => {
+  const hoje = new Date();
+  const dataVigencia = new Date(
+    hoje.getFullYear(),
+    hoje.getMonth(),
+    hoje.getDate()
+  );
+
+  return await PrecosFaixas.findOne({
+    where: {
+      id_rota: rota.id_rota,
+      id_faixa: faixaPeso.id_faixa,
+      id_transportadora: transportadora.id_transportadora,
+      data_vigencia_inicio: {
+        [Op.lte]: dataVigencia,
+      },
+      [Op.or]: [
+        { data_vigencia_fim: null },
+        { data_vigencia_fim: { [Op.gte]: dataVigencia } },
+      ],
+      ativo: true,
+    },
+    order: [["data_vigencia_inicio", "DESC"]],
+  });
+};
+
+const calcularPedagio = (precoTabela, valorMercadoria) => {
+  let pedagio = parseFloat(precoTabela.pedagio || 0);
+
+  if (pedagio === 0) {
+    const fracao = parseFloat(precoTabela.fracao || 0);
+    const minimo = parseFloat(precoTabela.minimo || 0);
+    if (fracao > 0) {
+      if (fracao < 1) {
+        pedagio = valorMercadoria * (fracao / 100);
+      } else {
+        pedagio = fracao;
+      }
+      if (minimo > 0 && pedagio < minimo) {
+        pedagio = minimo;
+      }
+    }
+  }
+
+  return pedagio;
+};
+
+const calcularFreteValor = (precoTabela, valorMercadoria) => {
+  const freteValorRaw = parseFloat(precoTabela.frete_valor || 0);
+  const freteValorPercent = freteValorRaw / 100;
+
+  if (freteValorPercent > 0 && valorMercadoria > 0) {
+    return valorMercadoria * freteValorPercent;
+  }
+  return 0;
+};
+
+const calcularGris = (precoTabela, valorMercadoria) => {
+  const grisRaw = parseFloat(precoTabela.gris || 0);
+  const grisPercent = grisRaw / 100;
+  const grissMinimo = parseFloat(precoTabela.griss_minimo || 0);
+
+  if (grisPercent > 0 && valorMercadoria > 0) {
+    let grisCalculado = valorMercadoria * grisPercent;
+    if (grissMinimo > 0 && grisCalculado < grissMinimo) {
+      grisCalculado = grissMinimo;
+    }
+    return grisCalculado;
+  }
+  return 0;
+};
+
+const calcularTDE = (precoTabela, valorMercadoria) => {
+  const tdeRaw = parseFloat(precoTabela.tde || 0);
+  const tdePercent = tdeRaw / 100;
+
+  if (tdePercent > 0 && valorMercadoria > 0) {
+    return valorMercadoria * tdePercent;
+  }
+  return 0;
+};
+
+const calcularTaxaQuimico = (precoTabela, valorMercadoria) => {
+  const taxaQuimicoRaw = parseFloat(precoTabela.taxa_quimico || 0);
+  const taxaQuimicoPercent = taxaQuimicoRaw / 100;
+
+  if (taxaQuimicoPercent > 0 && valorMercadoria > 0) {
+    return valorMercadoria * taxaQuimicoPercent;
+  }
+  return 0;
+};
+
+const calcularValores = (precoTabela, valorMercadoria) => {
+  const precoBase = parseFloat(precoTabela.preco || 0);
+  const txAdm = parseFloat(precoTabela.tx_adm || 0);
+  const pedagio = calcularPedagio(precoTabela, valorMercadoria);
+  const freteValorCalculado = calcularFreteValor(precoTabela, valorMercadoria);
+  const grisCalculado = calcularGris(precoTabela, valorMercadoria);
+  const tdeCalculado = calcularTDE(precoTabela, valorMercadoria);
+  const taxaQuimicoCalculado = calcularTaxaQuimico(
+    precoTabela,
+    valorMercadoria
+  );
+  const icmsCalculado = 0;
+
+  const valorTotalEsperado =
+    precoBase +
+    freteValorCalculado +
+    grisCalculado +
+    txAdm +
+    tdeCalculado +
+    taxaQuimicoCalculado;
+
+  return {
+    precoBase,
+    txAdm,
+    pedagio,
+    freteValorCalculado,
+    grisCalculado,
+    tdeCalculado,
+    taxaQuimicoCalculado,
+    icmsCalculado,
+    valorTotalEsperado,
+  };
+};
+
+const determinarStatusEValor = (diferenca, percentualDiferenca) => {
+  if (Math.abs(diferenca) <= 0.01) {
+    return {
+      status: "ok",
+      motivo: "Preço está de acordo com a tabela",
+    };
+  }
+
+  if (diferenca > 0.01) {
+    return {
+      status: "acima",
+      motivo: `Preço cobrado está ${percentualDiferenca.toFixed(
+        2
+      )}% acima da tabela`,
+    };
+  }
+
+  return {
+    status: "abaixo",
+    motivo: `Preço cobrado está ${Math.abs(percentualDiferenca).toFixed(
+      2
+    )}% abaixo da tabela`,
+  };
+};
+
+const criarRespostaSucesso = (
+  valores,
+  valorCTE,
+  diferenca,
+  percentualDiferenca,
+  status,
+  motivo,
+  cidadeOrigem,
+  cidadeDestino,
+  transportadora,
+  faixaPeso
+) => {
+  return {
+    valido: true,
+    status,
+    motivo,
+    precoTabela: valores.valorTotalEsperado,
+    precoBase: valores.precoBase,
+    precoCTE: valorCTE,
+    diferenca,
+    percentualDiferenca,
+    detalhesCalculo: {
+      precoBase: valores.precoBase,
+      freteValor: valores.freteValorCalculado,
+      gris: valores.grisCalculado,
+      txAdm: valores.txAdm,
+      tde: valores.tdeCalculado,
+      taxaQuimico: valores.taxaQuimicoCalculado,
+      pedagio: valores.pedagio,
+      icms: valores.icmsCalculado,
+      valorTotal: valores.valorTotalEsperado,
+    },
+    rota: {
+      origem: cidadeOrigem.nome_cidade,
+      destino: cidadeDestino.nome_cidade,
+    },
+    transportadora: transportadora.nome_transportadora,
+    faixaPeso: faixaPeso.descricao,
+  };
+};
+
 const validarPrecoCTE = async (cteData) => {
   try {
-    const { remetente, destinatario, valores, carga, emitente } = cteData;
+    const dados = extrairDadosCTE(cteData);
 
-    const cidadeOrigemNome = remetente?.endereco?.municipio || "";
-    const cidadeOrigemUF = remetente?.endereco?.uf || "";
-    const cidadeDestinoNome = destinatario?.endereco?.municipio || "";
-    const cidadeDestinoUF = destinatario?.endereco?.uf || "";
-    const transportadoraNome = emitente?.nome || emitente?.fantasia || "";
-    const peso = carga?.quantidade || "";
-    const valorCTE = parseFloat(
-      valores?.valorTotal || valores?.valorServico || 0
+    const validacaoBasica = validarDadosBasicos(dados);
+    if (!validacaoBasica.valido) {
+      return validacaoBasica.resposta;
+    }
+
+    const entidades = await buscarEntidades(dados);
+    if (!entidades.sucesso) {
+      return entidades.resposta;
+    }
+
+    const validacaoFaixa = await validarFaixaPeso(
+      dados.peso,
+      entidades.rota.id_rota,
+      entidades.transportadora.id_transportadora,
+      dados.valorCTE
     );
-
-    if (!cidadeOrigemNome || !cidadeDestinoNome || !transportadoraNome) {
-      return {
-        valido: false,
-        motivo: "Dados insuficientes",
-        precoTabela: null,
-        precoCTE: valorCTE,
-        diferenca: null,
-        percentualDiferenca: null,
-      };
+    if (!validacaoFaixa.sucesso) {
+      return validacaoFaixa.resposta;
     }
 
-    const cidadeOrigem = await buscarCidadePorNome(
-      cidadeOrigemNome,
-      cidadeOrigemUF
+    const precoTabela = await buscarPrecoTabela(
+      entidades.rota,
+      validacaoFaixa.faixaPeso,
+      entidades.transportadora
     );
-    if (!cidadeOrigem) {
-      return {
-        valido: false,
-        motivo: "Cidade de origem não encontrada",
-        precoTabela: null,
-        precoCTE: valorCTE,
-        diferenca: null,
-        percentualDiferenca: null,
-      };
-    }
-
-    const cidadeDestino = await buscarCidadePorNome(
-      cidadeDestinoNome,
-      cidadeDestinoUF
-    );
-    if (!cidadeDestino) {
-      return {
-        valido: false,
-        motivo: "Cidade de destino não encontrada",
-        precoTabela: null,
-        precoCTE: valorCTE,
-        diferenca: null,
-        percentualDiferenca: null,
-      };
-    }
-
-    const transportadora = await buscarTransportadoraPorNome(
-      transportadoraNome
-    );
-    if (!transportadora) {
-      return {
-        valido: false,
-        motivo: "Transportadora não encontrada",
-        precoTabela: null,
-        precoCTE: valorCTE,
-        diferenca: null,
-        percentualDiferenca: null,
-      };
-    }
-
-    const rota = await Rotas.findOne({
-      where: {
-        id_cidade_origem: cidadeOrigem.id_cidade,
-        id_cidade_destino: cidadeDestino.id_cidade,
-        ativa: true,
-      },
-    });
-
-    if (!rota) {
-      return {
-        valido: false,
-        motivo: "Rota não encontrada",
-        precoTabela: null,
-        precoCTE: valorCTE,
-        diferenca: null,
-        percentualDiferenca: null,
-      };
-    }
-
-    const { faixa: faixaPeso, erro: erroFaixa } = await encontrarFaixaPeso(
-      peso,
-      rota.id_rota,
-      transportadora.id_transportadora
-    );
-
-    if (!faixaPeso) {
-      return {
-        valido: false,
-        motivo: erroFaixa || "Faixa de peso não encontrada",
-        precoTabela: null,
-        precoCTE: valorCTE,
-        diferenca: null,
-        percentualDiferenca: null,
-      };
-    }
-
-    if (erroFaixa && faixaPeso) {
-      return {
-        valido: false,
-        motivo: erroFaixa,
-        precoTabela: null,
-        precoCTE: valorCTE,
-        diferenca: null,
-        percentualDiferenca: null,
-      };
-    }
-
-    const hoje = new Date();
-    const dataVigencia = new Date(
-      hoje.getFullYear(),
-      hoje.getMonth(),
-      hoje.getDate()
-    );
-
-    const precoTabela = await PrecosFaixas.findOne({
-      where: {
-        id_rota: rota.id_rota,
-        id_faixa: faixaPeso.id_faixa,
-        id_transportadora: transportadora.id_transportadora,
-        data_vigencia_inicio: {
-          [Op.lte]: dataVigencia,
-        },
-        [Op.or]: [
-          { data_vigencia_fim: null },
-          { data_vigencia_fim: { [Op.gte]: dataVigencia } },
-        ],
-        ativo: true,
-      },
-      order: [["data_vigencia_inicio", "DESC"]],
-    });
-
     if (!precoTabela) {
-      return {
-        valido: false,
-        motivo: "Preço não encontrado",
-        precoTabela: null,
-        precoCTE: valorCTE,
-        diferenca: null,
-        percentualDiferenca: null,
-      };
+      return criarRespostaErro("Preço não encontrado", dados.valorCTE);
     }
 
-    const precoBase = parseFloat(precoTabela.preco || 0);
+    const valores = calcularValores(precoTabela, dados.valorMercadoria);
+    const diferenca = dados.valorCTE - valores.valorTotalEsperado;
+    const percentualDiferenca =
+      valores.valorTotalEsperado > 0
+        ? (diferenca / valores.valorTotalEsperado) * 100
+        : 0;
 
-    const valorMercadoria = parseFloat(
-      carga?.valorCarga || valores?.valorCarga || 0
+    const { status, motivo } = determinarStatusEValor(
+      diferenca,
+      percentualDiferenca
     );
 
-    const freteValorRaw = parseFloat(precoTabela.frete_valor || 0);
-    const freteValorPercent = freteValorRaw / 100;
-
-    const txAdm = parseFloat(precoTabela.tx_adm || 0);
-
-    const grisRaw = parseFloat(precoTabela.gris || 0);
-    const grisPercent = grisRaw / 100;
-
-    const grissMinimo = parseFloat(precoTabela.griss_minimo || 0);
-
-    const tdeRaw = parseFloat(precoTabela.tde || 0);
-    const tdePercent = tdeRaw / 100;
-
-    const taxaQuimicoRaw = parseFloat(precoTabela.taxa_quimico || 0);
-    const taxaQuimicoPercent = taxaQuimicoRaw / 100;
-
-    let pedagio = parseFloat(precoTabela.pedagio || 0);
-
-    if (pedagio === 0) {
-      const fracao = parseFloat(precoTabela.fracao || 0);
-      const minimo = parseFloat(precoTabela.minimo || 0);
-      if (fracao > 0) {
-        if (fracao < 1) {
-          pedagio = valorMercadoria * (fracao / 100);
-        } else {
-          pedagio = fracao;
-        }
-        if (minimo > 0 && pedagio < minimo) {
-          pedagio = minimo;
-        }
-      }
-    }
-
-    let freteValorCalculado = 0;
-    if (freteValorPercent > 0 && valorMercadoria > 0) {
-      freteValorCalculado = valorMercadoria * freteValorPercent;
-    }
-
-    let grisCalculado = 0;
-    if (grisPercent > 0 && valorMercadoria > 0) {
-      grisCalculado = valorMercadoria * grisPercent;
-      if (grissMinimo > 0 && grisCalculado < grissMinimo) {
-        grisCalculado = grissMinimo;
-      }
-    }
-
-    let tdeCalculado = 0;
-    if (tdePercent > 0 && valorMercadoria > 0) {
-      tdeCalculado = valorMercadoria * tdePercent;
-    }
-
-    let taxaQuimicoCalculado = 0;
-    if (taxaQuimicoPercent > 0 && valorMercadoria > 0) {
-      taxaQuimicoCalculado = valorMercadoria * taxaQuimicoPercent;
-    }
-
-    let icmsCalculado = 0;
-    const valorTotalEsperado =
-      precoBase +
-      freteValorCalculado +
-      grisCalculado +
-      txAdm +
-      tdeCalculado +
-      taxaQuimicoCalculado;
-
-    const diferenca = valorCTE - valorTotalEsperado;
-    const percentualDiferenca =
-      valorTotalEsperado > 0 ? (diferenca / valorTotalEsperado) * 100 : 0;
-
-    let status = "ok";
-    let motivo = "";
-
-    if (Math.abs(diferenca) <= 0.01) {
-      status = "ok";
-      motivo = "Preço está de acordo com a tabela";
-    } else if (diferenca > 0.01) {
-      status = "acima";
-      motivo = `Preço cobrado está ${percentualDiferenca.toFixed(
-        2
-      )}% acima da tabela`;
-    } else {
-      status = "abaixo";
-      motivo = `Preço cobrado está ${Math.abs(percentualDiferenca).toFixed(
-        2
-      )}% abaixo da tabela`;
-    }
-
-    return {
-      valido: true,
-      status,
-      motivo,
-      precoTabela: valorTotalEsperado,
-      precoBase: precoBase,
-      precoCTE: valorCTE,
+    return criarRespostaSucesso(
+      valores,
+      dados.valorCTE,
       diferenca,
       percentualDiferenca,
-      detalhesCalculo: {
-        precoBase,
-        freteValor: freteValorCalculado,
-        gris: grisCalculado,
-        txAdm,
-        tde: tdeCalculado,
-        taxaQuimico: taxaQuimicoCalculado,
-        pedagio,
-        icms: icmsCalculado,
-        valorTotal: valorTotalEsperado,
-      },
-      rota: {
-        origem: cidadeOrigem.nome_cidade,
-        destino: cidadeDestino.nome_cidade,
-      },
-      transportadora: transportadora.nome_transportadora,
-      faixaPeso: faixaPeso.descricao,
-    };
+      status,
+      motivo,
+      entidades.cidadeOrigem,
+      entidades.cidadeDestino,
+      entidades.transportadora,
+      validacaoFaixa.faixaPeso
+    );
   } catch (error) {
     console.error("Erro ao validar preço do CT-e:", error);
     console.error("Stack trace:", error.stack);

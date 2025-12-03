@@ -131,22 +131,14 @@ class LokiLogger {
     }
   }
 
-  async sendToLoki(logs) {
-    if (logs.length === 0) {
-      return;
-    }
+  validarLokiHabilitado() {
+    return (
+      config.loki.enabled && config.loki.url && config.loki.url.trim() !== ""
+    );
+  }
 
-    // Se Loki não estiver habilitado (URL vazia), não tentar enviar
-    if (
-      !config.loki.enabled ||
-      !config.loki.url ||
-      config.loki.url.trim() === ""
-    ) {
-      return;
-    }
-
+  agruparLogsEmStreams(logs) {
     const streams = {};
-
     for (const log of logs) {
       const formatted = formatLogForLoki(log);
       const streamKey = JSON.stringify(formatted.stream);
@@ -160,72 +152,121 @@ class LokiLogger {
 
       streams[streamKey].values.push(...formatted.values);
     }
+    return streams;
+  }
 
-    const payload = {
+  criarPayload(streams) {
+    return {
       streams: Object.values(streams),
     };
+  }
 
+  calcularDelay(attempt) {
+    if (attempt === 0) {
+      return 5000;
+    }
+    return config.log.retryDelay * Math.pow(2, attempt);
+  }
+
+  ehErroRecuperavel(error) {
+    if (!error.response && !error.request) {
+      return false;
+    }
+
+    const codigosRecuperaveis = [
+      "ECONNABORTED",
+      "EHOSTUNREACH",
+      "ECONNREFUSED",
+      "ETIMEDOUT",
+    ];
+
+    if (codigosRecuperaveis.includes(error.code)) {
+      return true;
+    }
+
+    const mensagem = error.message || "";
+    return mensagem.includes("timeout") || mensagem.includes("ENOTFOUND");
+  }
+
+  async aguardarDelay(delay) {
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
+
+  async processarResposta503(response, attempt) {
+    const lastError = new Error(
+      `Loki ingester not ready (503), attempt ${attempt + 1}/${
+        config.log.maxRetries
+      }`
+    );
+
+    if (attempt < config.log.maxRetries - 1) {
+      const delay = this.calcularDelay(attempt);
+      await this.aguardarDelay(delay);
+    }
+
+    return lastError;
+  }
+
+  criarConfiguracaoRequisicao() {
+    return {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      timeout: 30000,
+      validateStatus: (status) => {
+        return status === 200 || status === 204 || status === 503;
+      },
+    };
+  }
+
+  async fazerRequisicaoComRetry(payload) {
     let lastError;
+
     for (let attempt = 0; attempt < config.log.maxRetries; attempt++) {
       try {
-        const response = await axios.post(config.loki.url, payload, {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          timeout: 30000,
-          validateStatus: (status) => {
-            return status === 200 || status === 204 || status === 503;
-          },
-        });
+        const response = await axios.post(
+          config.loki.url,
+          payload,
+          this.criarConfiguracaoRequisicao()
+        );
 
         if (response.status === 204 || response.status === 200) {
           return;
         }
 
         if (response.status === 503) {
-          lastError = new Error(
-            `Loki ingester not ready (503), attempt ${attempt + 1}/${
-              config.log.maxRetries
-            }`
-          );
-          const delay =
-            attempt === 0 ? 5000 : config.log.retryDelay * Math.pow(2, attempt);
-          if (attempt < config.log.maxRetries - 1) {
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            continue;
-          }
+          lastError = await this.processarResposta503(response, attempt);
+          continue;
         }
       } catch (error) {
         lastError = error;
 
-        if (!error.response && !error.request) {
+        if (!this.ehErroRecuperavel(error)) {
           throw error;
         }
 
-        if (
-          error.code === "ECONNABORTED" ||
-          error.code === "EHOSTUNREACH" ||
-          error.code === "ECONNREFUSED" ||
-          error.code === "ETIMEDOUT" ||
-          error.message.includes("timeout") ||
-          error.message.includes("ENOTFOUND")
-        ) {
-          const delay = config.log.retryDelay * Math.pow(2, attempt);
-          if (attempt < config.log.maxRetries - 1) {
-            await new Promise((resolve) => setTimeout(resolve, delay));
-            continue;
-          }
-        }
-
-        const delay = config.log.retryDelay * Math.pow(2, attempt);
-
         if (attempt < config.log.maxRetries - 1) {
-          await new Promise((resolve) => setTimeout(resolve, delay));
+          const delay = this.calcularDelay(attempt);
+          await this.aguardarDelay(delay);
         }
       }
     }
 
     throw lastError || new Error("Failed to send logs to Loki after retries");
+  }
+
+  async sendToLoki(logs) {
+    if (logs.length === 0) {
+      return;
+    }
+
+    if (!this.validarLokiHabilitado()) {
+      return;
+    }
+
+    const streams = this.agruparLogsEmStreams(logs);
+    const payload = this.criarPayload(streams);
+    await this.fazerRequisicaoComRetry(payload);
   }
 
   debug(message, metadata = {}) {
